@@ -1,70 +1,99 @@
 <p align="center">
-  <img src="./app/screenshots/logo.png" width="120" alt="Vynta Logo">
+  <img src="./app/screenshots/logo.png" width="100" alt="Vynta Logo">
 </p>
 
 <h1 align="center">Vynta</h1>
+
 <p align="center">
-  <b>The Neural Task Architect for High-Performance Living.</b><br>
-  <i>Bridging the gap between human intuition and machine intelligence.</i>
+  AI-powered task scheduler that actually gets how you work.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/AI-Llama%203-blueviolet?style=for-the-badge&logo=meta" alt="AI Engine">
   <img src="https://img.shields.io/badge/UI-Jetpack%20Compose-green?style=for-the-badge&logo=android" alt="UI Framework">
   <img src="https://img.shields.io/badge/Architecture-MVVM-orange?style=for-the-badge" alt="Architecture">
+  <img src="https://img.shields.io/badge/Status-Testing-yellow?style=for-the-badge" alt="Status">
 </p>
 
 ---
 
-## 📽️ Project Overview
+## What is Vynta?
 
-**Vynta** isn't just a task manager; it’s a high-performance productivity layer designed to adapt to your energy levels. Built with **Jetpack Compose** and powered by **Groq (Llama 3)**, Vynta understands the *context* of your life, not just the text of your notes.
+Honestly, I built this because I kept missing tasks and no existing app felt smart enough to help me.
 
-### 📸 Interface Preview
-| Home | Input | History | Settings |
+Vynta is a task scheduler that uses AI to figure out *when* you should do things — not just *what*. You describe your task in plain language, tell it your energy level, and it schedules it for you. That's basically the whole idea.
+
+It's connected to Google Calendar, built with Jetpack Compose, and uses Groq (Llama 3) under the hood for the AI part.
+
+Still in testing. Not perfect. But it works.
+
+---
+
+## Screenshots
+
+| Home | Create Task | History | Settings |
 | :---: | :---: | :---: | :---: |
 | <img src="./app/screenshots/home.png" width="180"> | <img src="./app/screenshots/input.png" width="180"> | <img src="./app/screenshots/history.png" width="180"> | <img src="./app/screenshots/settings.png" width="180"> |
 
 ---
 
-## ✨ Evolutionary Features
+## Features
 
-* **🧠 Neural Input Engine** – Speak or type naturally. Vynta’s AI understands context, priority, and energy requirements for every task.
-* **🍱 Bento UI Architecture** – A clean, modern interface inspired by high-end design trends for maximum focus and zero clutter.
-* **⚡ Energy-Aware Scheduling** – Stop fighting your biology. Tasks are filtered and prioritized based on your current cognitive bandwidth.
-* **📅 Google Calendar Sync** – Seamless, bi-directional synchronization with your existing ecosystem.
-* **🎨 Material 3 Dynamic** – Beautiful light and dark modes that adapt fluidly to your system preferences.
+- **Natural language input** — just describe what you need to do, AI handles the rest
+- **Energy-aware scheduling** — low, medium, or high energy tasks get scheduled at the right time
+- **Google Calendar sync** — works with whatever you're already using
+- **History + productivity tracking** — see how consistent you actually are
+- **Dark mode first** — because that's just how it should be
+- **Material 3** — follows Android's design guidelines properly
 
 ---
 
-## 🛠 Engineering Stack
+## Tech Stack
 
-| Layer | Technology |
+| What | How |
 | :--- | :--- |
-| **Frontend** | Jetpack Compose (Material 3) |
-| **Asynchronous** | Kotlin Coroutines & Flow |
-| **Inference** | Groq (Llama 3) via Retrofit |
-| **Persistence** | Room Database & DataStore |
-| **Pattern** | MVVM (Model-View-ViewModel) |
+| UI | Jetpack Compose + Material 3 |
+| AI | Groq API (Llama 3) via Retrofit |
+| Database | Room + DataStore |
+| Background work | Kotlin Coroutines & Flow |
+| Architecture | MVVM |
+| Calendar | Google Calendar API |
 
 ---
 
-## 🔒 Intellectual Property & License
 
-**Vynta is a proprietary application.**
+## What's Next
 
-This project is a private portfolio piece and is **not open-source**. All rights are reserved by the developer. The source code is provided for review and portfolio evaluation purposes only. You may not redistribute, modify, or use this code for commercial purposes without explicit permission.
+Things I'm still working on:
+
+- [ ] Home screen widgets
+- [ ] Better onboarding flow
+- [ ] Smarter AI suggestions based on past patterns
+- [ ] Streak system for habits
+- [ ] UI polish (the settings screen needs work)
+
+---
+
+## License
+
+This is a proprietary project. Not open source. All rights reserved.
+
+You can look at it for reference or review — just don't redistribute or use the code commercially without asking me first.
 
 ---
 
-## 👨‍💻 Developed By
+## Built by
 
-**Murshid R** *AI Engineer & Founder*
+**Murshid R**
+3rd year CS student @ Dr. M.G.R Educational and Research Institute, Chennai
+AI Research Engineer @ ACS Space Technology Centre
 
-[<img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" />](https://linkedin.com/in/murshid-r-37088b272)
-[<img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" />](https://github.com/murshidr)
+This is one of my personal projects I actually use day to day.
+
+[LinkedIn](https://linkedin.com/in/murshid-r-37088b272) · [GitHub](https://github.com/AA1-31-Murshid) · [Portfolio](https://murshid-r.vercel.app)
 
 ---
+
 <p align="center">
-  <i>Intelligence Redefined. © 2026 Murshid R.</i>
+  <i>© 2026 Murshid R. Built in Chennai.</i>
 </p>
