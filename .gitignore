@@ -1,0 +1,32 @@
+# Android/Kotlin Project Ignore
+*.iml
+.gradle
+local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/runConfigurations/
+/.idea/deploymentTargetDropDown.xml
+/.idea/shelf/
+/.idea/vcs.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.bak
+*.swp
+*.class
+bin/
+gen/
+
+# Log files
+*.log
+
+# Sensitive Files
+google-services.json
+secrets.xml
+gradle.properties

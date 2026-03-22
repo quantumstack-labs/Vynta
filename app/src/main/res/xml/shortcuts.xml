@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="plan_day"
+        android:enabled="true"
+        android:icon="@drawable/ic_mic_shortcut"
+        android:shortcutShortLabel="@string/shortcut_plan_day"
+        android:shortcutLongLabel="@string/shortcut_plan_day_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.first_project.chronoai"
+            android:targetClass="com.first_project.chronoai.MainActivity">
+            <extra android:name="shortcut" android:value="plan_day" />
+        </intent>
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="view_logbook"
+        android:enabled="true"
+        android:icon="@drawable/ic_history_shortcut"
+        android:shortcutShortLabel="@string/shortcut_logbook"
+        android:shortcutLongLabel="@string/shortcut_logbook_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.first_project.chronoai"
+            android:targetClass="com.first_project.chronoai.MainActivity">
+            <extra android:name="shortcut" android:value="history" />
+        </intent>
+    </shortcut>
+</shortcuts>

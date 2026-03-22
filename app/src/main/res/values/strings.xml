@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Vynta</string>
+    <string name="shortcut_plan_day">Plan My Day</string>
+    <string name="shortcut_plan_day_long">Instantly plan your day with AI voice</string>
+    <string name="shortcut_logbook">Logbook</string>
+    <string name="shortcut_logbook_long">View your past and upcoming task history</string>
+</resources>
