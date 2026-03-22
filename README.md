@@ -2,7 +2,7 @@
   <img src="./app/screenshots/logo.png" width="120" alt="Vynta Logo">
 </p>
 
-<h1 align="center">🌌 Vynta</h1>
+<h1 align="center">Vynta</h1>
 <p align="center">
   <b>The Neural Task Architect for High-Performance Living.</b><br>
   <i>Bridging the gap between human intuition and machine intelligence.</i>
