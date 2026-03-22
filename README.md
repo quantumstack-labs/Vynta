@@ -1,26 +1,55 @@
-# Vynta - AI-Powered Habit & Task Architect
+<p align="center">
+  <img src="./app/screenshots/logo.png" width="120" alt="Vynta Logo">
+</p>
 
-Vynta is a high-performance productivity application designed to bridge the gap between human intuition and machine intelligence. Built with Jetpack Compose and powered by advanced LLMs, Vynta adapts to your energy levels and cycles to help you achieve peak efficiency.
+<h1 align="center">🌌 Vynta</h1>
+<p align="center">
+  <b>The Neural Task Architect for High-Performance Living.</b><br>
+  <i>Bridging the gap between human intuition and machine intelligence.</i>
+</p>
 
-## ✨ Key Features
+<p align="center">
+  <img src="https://img.shields.io/badge/AI-Llama%203-blueviolet?style=for-the-badge&logo=meta" alt="AI Engine">
+  <img src="https://img.shields.io/badge/UI-Jetpack%20Compose-green?style=for-the-badge&logo=android" alt="UI Framework">
+  <img src="https://img.shields.io/badge/Architecture-MVVM-orange?style=for-the-badge" alt="Architecture">
+</p>
 
-- **Neural Input**: Speak or type naturally. Vynta's AI understands context, priority, and energy requirements for every task.
-- **Bento Architecture**: A clean, modern interface inspired by high-end design trends for maximum focus.
-- **Dynamic Theming**: Beautiful light and dark modes that adapt to your system preferences.
-- **Energy-Aware Scheduling**: Tasks are filtered and prioritized based on your current energy levels.
-- **Google Calendar Integration**: Seamlessly sync your personal tasks with your existing calendar events.
-- **Persistent Vynta Dock**: Rapid navigation between your daily agenda and history.
+---
 
-## 🛠 Tech Stack
+## 📽️ Project Overview
 
-- **UI**: Jetpack Compose (Material 3)
-- **Logic**: Kotlin Coroutines & Flow
-- **AI Engine**: Groq (Llama 3) via Retrofit
-- **Database**: Room Persistence Library
-- **Architecture**: MVVM (Model-View-ViewModel)
-- **Persistence**: DataStore for user preferences
+**Vynta** isn't just a task manager; it’s a high-performance productivity layer designed to adapt to your energy levels. Built with **Jetpack Compose** and powered by **Groq (Llama 3)**, Vynta understands the *context* of your life, not just the text of your notes.
 
-## 🔒 License & Intellectual Property
+### 📸 Interface Preview
+| Home | Input | History | Settings |
+| :---: | :---: | :---: | :---: |
+| <img src="./app/screenshots/home.png" width="180"> | <img src="./app/screenshots/input.png" width="180"> | <img src="./app/screenshots/history.png" width="180"> | <img src="./app/screenshots/settings.png" width="180"> |
+
+---
+
+## ✨ Evolutionary Features
+
+* **🧠 Neural Input Engine** – Speak or type naturally. Vynta’s AI understands context, priority, and energy requirements for every task.
+* **🍱 Bento UI Architecture** – A clean, modern interface inspired by high-end design trends for maximum focus and zero clutter.
+* **⚡ Energy-Aware Scheduling** – Stop fighting your biology. Tasks are filtered and prioritized based on your current cognitive bandwidth.
+* **📅 Google Calendar Sync** – Seamless, bi-directional synchronization with your existing ecosystem.
+* **🎨 Material 3 Dynamic** – Beautiful light and dark modes that adapt fluidly to your system preferences.
+
+---
+
+## 🛠 Engineering Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend** | Jetpack Compose (Material 3) |
+| **Asynchronous** | Kotlin Coroutines & Flow |
+| **Inference** | Groq (Llama 3) via Retrofit |
+| **Persistence** | Room Database & DataStore |
+| **Pattern** | MVVM (Model-View-ViewModel) |
+
+---
+
+## 🔒 Intellectual Property & License
 
 **Vynta is a proprietary application.**
 
@@ -30,7 +59,12 @@ This project is a private portfolio piece and is **not open-source**. All rights
 
 ## 👨‍💻 Developed By
 
-**Murshid R**
-*AI Engineer & Founder*
-- [LinkedIn](https://linkedin.com/in/murshid-r-37088b272)
-- [GitHub](https://github.com/murshidr)
+**Murshid R** *AI Engineer & Founder*
+
+[<img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" />](https://linkedin.com/in/murshid-r-37088b272)
+[<img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" />](https://github.com/murshidr)
+
+---
+<p align="center">
+  <i>Intelligence Redefined. © 2026 Murshid R.</i>
+</p>
