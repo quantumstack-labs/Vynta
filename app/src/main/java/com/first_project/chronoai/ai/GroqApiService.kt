@@ -1,10 +1,12 @@
 package com.first_project.chronoai.ai
 
+import androidx.annotation.Keep
 import com.google.gson.annotations.SerializedName
 import retrofit2.http.Body
 import retrofit2.http.Header
 import retrofit2.http.POST
 
+@Keep
 data class GroqRequest(
     @SerializedName("model")
     val model: String,
@@ -16,6 +18,7 @@ data class GroqRequest(
     val stream: Boolean = false
 )
 
+@Keep
 data class Message(
     @SerializedName("role")
     val role: String,
@@ -23,11 +26,13 @@ data class Message(
     val content: String
 )
 
+@Keep
 data class GroqResponse(
     @SerializedName("choices")
     val choices: List<Choice>
 )
 
+@Keep
 data class Choice(
     @SerializedName("message")
     val message: Message
