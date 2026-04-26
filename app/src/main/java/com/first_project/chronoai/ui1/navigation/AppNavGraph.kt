@@ -1,5 +1,7 @@
 package com.first_project.chronoai.ui1.navigation
 
+import android.content.pm.PackageManager
+import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -16,6 +18,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +59,7 @@ import com.first_project.chronoai.ui1.navigation.ManualScreen
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.services.calendar.CalendarScopes
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -117,24 +121,44 @@ fun AppNavGraph(
             aiManager = groqManager,
             homeViewModel = homeViewModel,
             scheduleTaskUseCase = scheduleTaskUseCase,
-            userPreferencesRepo = userPreferencesRepo
+               userPreferencesRepo = userPreferencesRepo
         )
     }
 
+    // Track if we've already checked for changelog this session to avoid repeats
+    var hasCheckedChangelog by remember { mutableStateOf(false) }
+
     // Handle initial shortcuts and changelog
-    LaunchedEffect(initialShortcut, prefs.lastSeenVersion) {
-        val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+    LaunchedEffect(initialShortcut, prefs.lastSeenVersion, account, prefs.hasAcceptedTerms) {
+        val currentVersion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+        }
         
-        if (currentVersion > prefs.lastSeenVersion && account != null) {
-            navController.navigate("changelog")
-        } else if (initialShortcut != null) {
+        if (!hasCheckedChangelog && account != null && prefs.hasAcceptedTerms) {
+            // Check if it's an update or first launch with a pending changelog
+            if (currentVersion > prefs.lastSeenVersion) {
+                // Delay slightly to ensure DataStore has emitted the latest value 
+                // and we're not just seeing the initial 0.
+                delay(600) 
+                if (currentVersion > prefs.lastSeenVersion) {
+                    val currentRoute = navController.currentDestination?.route
+                    if (currentRoute != "changelog" && currentRoute != "terms" && currentRoute != "login") {
+                        navController.navigate("changelog")
+                        hasCheckedChangelog = true
+                    }
+                }
+            } else {
+                hasCheckedChangelog = true
+            }
+        }
+
+        if (initialShortcut != null && !hasCheckedChangelog) {
             when (initialShortcut) {
-                "plan_day" -> {
-                    navController.navigate("input?triggerMic=true")
-                }
-                "history" -> {
-                    navController.navigate("history")
-                }
+                "plan_day" -> navController.navigate("input?triggerMic=true")
+                "history" -> navController.navigate("history")
             }
             onShortcutConsumed()
         }
@@ -323,7 +347,12 @@ fun AppNavGraph(
                 composable("changelog") {
                     ChangelogScreen(onDismiss = {
                         scope.launch {
-                            val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+                            val currentVersion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
+                            } else {
+                                @Suppress("DEPRECATION")
+                                context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+                            }
                             userPreferencesRepo.updateLastSeenVersion(currentVersion)
                             navController.popBackStack()
                         }
