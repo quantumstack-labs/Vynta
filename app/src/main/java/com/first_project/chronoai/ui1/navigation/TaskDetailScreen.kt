@@ -39,7 +39,12 @@ fun TaskDetailScreen(
     val context = LocalContext.current
 
     if (task == null) {
-        onBack()
+        ErrorScreen(
+            title = "Task Not Found",
+            message = "We couldn't locate the details for this task. It may have been removed.",
+            buttonText = "Return to Schedule",
+            onRetry = onBack
+        )
         return
     }
 

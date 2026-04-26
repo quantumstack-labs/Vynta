@@ -27,7 +27,7 @@ fun DailyProgressCard(progress: Float, completed: Int, total: Int) {
                     Text("Daily Progress", style = VyntaTypography.titleMedium, color = TextPrimary)
                     Text("$completed/$total tasks completed", style = VyntaTypography.labelSmall, color = TextSecondary)
                 }
-                Text("${(progress * 100).toInt()}%", style = VyntaTypography.headlineMedium, color = AccentPrimary)
+                Text("${(progress * 100).toInt()}%", style = VyntaTypography.headlineMedium.copy(fontFamily = JetBrainsMonoFont), color = AccentPrimary)
             }
             Spacer(modifier = Modifier.height(16.dp))
             LinearProgressIndicator(
@@ -64,7 +64,7 @@ fun UpcomingEventItem(event: Event) {
             Column {
                 Text(event.summary ?: "No Title", style = VyntaTypography.bodyLarge, color = TextPrimary)
                 val time = event.start?.dateTime?.toString() ?: event.start?.date?.toString() ?: "All day"
-                Text(time, style = VyntaTypography.labelSmall, color = TextSecondary)
+                Text(time, style = MonoTime, color = TextSecondary)
             }
         }
     }

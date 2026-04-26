@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.first_project.chronoai.ui.theme.VyntaTypography
 
 @Composable
 fun LoadingScreen(status: String = "Synchronizing your timeline...") {
@@ -52,7 +53,7 @@ fun LoadingScreen(status: String = "Synchronizing your timeline...") {
             }
             Text(
                 text = "V",
-                style = MaterialTheme.typography.headlineLarge.copy(
+                style = VyntaTypography.headlineLarge.copy(
                     color = primaryColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 32.sp
@@ -64,7 +65,7 @@ fun LoadingScreen(status: String = "Synchronizing your timeline...") {
         
         Text(
             text = "VYNTA",
-            style = MaterialTheme.typography.labelLarge.copy(
+            style = VyntaTypography.labelLarge.copy(
                 letterSpacing = 4.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = primaryColor
@@ -75,7 +76,7 @@ fun LoadingScreen(status: String = "Synchronizing your timeline...") {
         
         Text(
             text = status,
-            style = MaterialTheme.typography.bodyMedium.copy(
+            style = VyntaTypography.bodyMedium.copy(
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
             )
         )

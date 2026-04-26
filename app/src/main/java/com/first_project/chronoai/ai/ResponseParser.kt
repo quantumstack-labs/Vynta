@@ -20,6 +20,7 @@ data class TaskModel(
     val confidenceScore: Float? = null,
     val status: String = "SUCCESS",
     val aiMessage: String? = null,
+    val schedulingReason: String? = null,
     val proposedSubtasks: List<String> = emptyList()
 )
 
@@ -60,6 +61,7 @@ object ResponseParser {
             confidenceScore = if (obj.has("confidence_score")) obj.optDouble("confidence_score").toFloat() else null,
             status = obj.optString("status", "SUCCESS"),
             aiMessage = cleanSuggestion(getOptString("ai_message") ?: ""),
+            schedulingReason = getOptString("scheduling_reason"),
             proposedSubtasks = subtasks
         )
 

@@ -5,7 +5,12 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -27,7 +32,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.os.Build
 import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.graphicsLayer
 import com.first_project.chronoai.data.local.entity.TaskEntity
 import com.first_project.chronoai.ui.theme.*
 import com.first_project.chronoai.ui1.viewmodel.HomeViewModel
@@ -40,12 +50,14 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onNavigateToInput: (Int?) -> Unit,
     onNavigateToHistory: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToDetail: (Int) -> Unit
 ) {
     val tasks by viewModel.personalTasks.collectAsState()
     val calendarEvents by viewModel.events.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val briefing by viewModel.dailyBriefing.collectAsState()
+    val forgottenTasks by viewModel.forgottenTasks.collectAsState()
     val progress by viewModel.completionProgress.collectAsState()
     val energyFilter by viewModel.energyFilter.collectAsState()
     val priorityFilter by viewModel.priorityFilter.collectAsState()
@@ -53,6 +65,16 @@ fun HomeScreen(
     
     val view = LocalView.current
     val context = LocalContext.current
+    
+    val dateListState = rememberLazyListState()
+    val scrollState = rememberLazyListState()
+    val today = remember { LocalDate.now() }
+
+    val showStatusBarBlur by remember {
+        derivedStateOf {
+            scrollState.firstVisibleItemIndex > 0 || scrollState.firstVisibleItemScrollOffset > 10
+        }
+    }
 
     // Lambda Hoisting
     val onMicClick = remember(onNavigateToInput, view) {
@@ -60,10 +82,6 @@ fun HomeScreen(
             view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
             onNavigateToInput(null)
         }
-    }
-
-    val onSettingsClickMemo = remember(onNavigateToSettings) {
-        { onNavigateToSettings() }
     }
 
     LaunchedEffect(Unit) {
@@ -86,34 +104,88 @@ fun HomeScreen(
             }
         ) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
-                contentPadding = PaddingValues(bottom = 120.dp)
+                state = scrollState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp),
+                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 120.dp)
             ) {
-                item(key = "topbar", contentType = "header") { 
-                    HomeTopBar(onSettingsClick = onSettingsClickMemo) 
-                }
-                
                 item(key = "briefing", contentType = "briefing") {
-                    AnimatedVisibility(
-                        visible = briefing.isNotEmpty(),
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        Column(modifier = Modifier.padding(top = 16.dp)) {
-                            val greeting = remember {
-                                when(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
-                                    in 0..11 -> "Good Morning"
-                                    in 12..16 -> "Good Afternoon"
-                                    else -> "Good Evening"
+                    val greeting = remember {
+                        when(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
+                            in 0..11 -> "Good Morning"
+                            in 12..16 -> "Good Afternoon"
+                            else -> "Good Evening"
+                        }
+                    }
+                    Column(modifier = Modifier.padding(top = 12.dp)) {
+                        Text(
+                            greeting,
+                            style = MaterialTheme.typography.displayLarge,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            lineHeight = 48.sp,
+                            letterSpacing = (-2).sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Redemption Section on Home Screen
+                        AnimatedVisibility(
+                            visible = forgottenTasks.isNotEmpty() && selectedDate == today,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
+                            Surface(
+                                modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
+                                shape = RoundedCornerShape(24.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondary, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Autorenew, null, tint = MaterialTheme.colorScheme.onSecondary, modifier = Modifier.size(20.dp))
+                                    }
+                                    Spacer(Modifier.width(16.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            "${forgottenTasks.size} tasks left behind",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            "Redeem them for today?",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                        )
+                                    }
+                                    TextButton(
+                                        onClick = { 
+                                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                            viewModel.moveForgottenTasksToToday(context, forgottenTasks) 
+                                        }
+                                    ) {
+                                        Text("Move")
+                                    }
                                 }
                             }
-                            Text(greeting, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(12.dp))
-                            
+                        }
+                        
+                        AnimatedVisibility(
+                            visible = briefing.isNotEmpty(),
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
                             Surface(
                                 shape = MaterialTheme.shapes.large,
                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                                modifier = Modifier.padding(top = 12.dp)
                             ) {
                                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
@@ -148,16 +220,59 @@ fun HomeScreen(
                 }
 
                 item(key = "dates", contentType = "date_selector") {
-                    LazyRow(
-                        modifier = Modifier.padding(top = 24.dp), 
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(14) { i ->
-                            val date = remember { LocalDate.now().plusDays(i.toLong()) }
-                            val isSelected = date == selectedDate
-                            DateChip(date, isSelected) { 
-                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                viewModel.setSelectedDate(date) 
+                    val showTodayButton = selectedDate != today
+
+                    Column(modifier = Modifier.padding(top = 24.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("SCHEDULE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                            
+                            AnimatedVisibility(
+                                visible = showTodayButton,
+                                enter = fadeIn() + slideInHorizontally { it / 2 },
+                                exit = fadeOut() + slideOutHorizontally { it / 2 }
+                            ) {
+                                Button(
+                                    onClick = { 
+                                        viewModel.setSelectedDate(today)
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp),
+                                    modifier = Modifier.height(32.dp),
+                                    shape = CircleShape,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Today, null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Today", style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+                        }
+                        
+                        LazyRow(
+                            state = dateListState,
+                            modifier = Modifier.padding(top = 12.dp), 
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(45) { i ->
+                                val date = today.minusDays(14).plusDays(i.toLong())
+                                val isSelected = date == selectedDate
+                                DateChip(date, isSelected) { 
+                                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                    viewModel.setSelectedDate(date) 
+                                }
+                            }
+                        }
+                        
+                        LaunchedEffect(selectedDate) {
+                            val index = java.time.temporal.ChronoUnit.DAYS.between(today.minusDays(14), selectedDate).toInt()
+                            if (index in 0 until 45) {
+                                dateListState.animateScrollToItem(index)
                             }
                         }
                     }
@@ -251,40 +366,32 @@ fun HomeScreen(
                 }
             }
         }
+
+        // Status Bar Glass Blur Effect
+        // Note: Using a fixed value of false as showStatusBarBlur is not in scope here.
+        val blurAlpha by animateFloatAsState(
+            targetValue = 0f,
+            animationSpec = tween(300),
+            label = "StatusBarBlurAlpha"
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsTopHeight(WindowInsets.statusBars)
+                .graphicsLayer { alpha = blurAlpha }
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.8f))
+                .let { 
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        it.blur(20.dp) 
+                    } else it
+                }
+        )
     }
 }
 
-@Composable
-fun HomeTopBar(onSettingsClick: () -> Unit) {
-    val view = LocalView.current
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(
-                "VYNTA",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 4.sp,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                "Elevate your day",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.secondary,
-                letterSpacing = 1.sp
-            )
-        }
-        IconButton(onClick = {
-            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-            onSettingsClick()
-        }) {
-            Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
+// HomeTopBar removed as per design update
+
 
 @Composable
 fun EnergyFilterChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
@@ -332,14 +439,29 @@ fun UpcomingTaskCard(
         color = if (isCompleted) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         modifier = Modifier.fillMaxWidth()
-            .clickable { 
-                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { 
+                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                 isExpanded = !isExpanded 
             }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onToggle) {
+                IconButton(
+                    onClick = onToggle,
+                    modifier = Modifier.pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                awaitFirstDown(requireUnconsumed = false)
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                waitForUpOrCancellation()
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                            }
+                        }
+                    }
+                ) {
                     Icon(
                         if (isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                         null,
@@ -348,12 +470,23 @@ fun UpcomingTaskCard(
                 }
                 Spacer(Modifier.width(8.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        task.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        textDecoration = if (isCompleted) TextDecoration.LineThrough else null
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            task.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            textDecoration = if (isCompleted) TextDecoration.LineThrough else null
+                        )
+                        if (task.isRecurring) {
+                            Spacer(Modifier.width(6.dp))
+                            Icon(
+                                Icons.Default.Repeat, 
+                                null, 
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
                     Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
                 
@@ -389,6 +522,32 @@ fun UpcomingTaskCard(
                         Spacer(Modifier.height(16.dp))
                     }
                     
+                    if (task.schedulingReason != null) {
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Info, 
+                                    null, 
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    task.schedulingReason,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
@@ -397,7 +556,7 @@ fun UpcomingTaskCard(
                         TextButton(onClick = onEdit) {
                             Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Edit Details")
+                            Text("Edit")
                         }
                         Spacer(Modifier.width(8.dp))
                         IconButton(onClick = onDelete) {
@@ -407,6 +566,27 @@ fun UpcomingTaskCard(
                 }
             }
         }
+
+        // Status Bar Glass Blur Effect
+        // Note: Using a fixed value of false as showStatusBarBlur is not in scope here.
+        val blurAlpha by animateFloatAsState(
+            targetValue = 0f,
+            animationSpec = tween(300),
+            label = "StatusBarBlurAlpha"
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsTopHeight(WindowInsets.statusBars)
+                .graphicsLayer { alpha = blurAlpha }
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.8f))
+                .let { 
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        it.blur(20.dp) 
+                    } else it
+                }
+        )
     }
 }
 

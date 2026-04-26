@@ -28,17 +28,108 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.first_project.chronoai.ai.GroqManager
 import com.first_project.chronoai.data.local.db.DatabaseProvider
 import com.first_project.chronoai.data.local.entity.TaskEntity
+import com.first_project.chronoai.BuildConfig
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryScreen(onBack: () -> Unit, onNavigateToHome: () -> Unit, onNavigateToSettings: () -> Unit) {
+fun HistoryScreen() {
     val context = LocalContext.current
-    val tasks by remember { DatabaseProvider.getDatabase(context).taskDao().getAllTasks() }.collectAsState(initial = emptyList())
+    val db = remember { DatabaseProvider.getDatabase(context) }
+    val tasks by db.taskDao().getAllTasks().collectAsState(initial = emptyList())
     val view = LocalView.current
+    val scope = rememberCoroutineScope()
     
+    val groqManager = remember { GroqManager(BuildConfig.GROQ_API_KEY) }
+    var aiMomentumMessage by remember { mutableStateOf("Great consistency!") }
+    var aiWinCelebration by remember { mutableStateOf("") }
+    var aiRedemptionMessage by remember { mutableStateOf("") }
+    var isGeneratingMessage by remember { mutableStateOf(false) }
+
+    val todayStr = remember { LocalDate.now().toString() }
+
+    val completedCount by remember {
+        derivedStateOf { tasks.count { it.status == "COMPLETED" } }
+    }
+    
+    val winOfTheDay by remember {
+        derivedStateOf {
+            tasks.filter { it.status == "COMPLETED" && it.deadline?.startsWith(todayStr) == true }
+                .maxWithOrNull(compareBy({ it.priority }, { it.subtasks.size }))
+        }
+    }
+
+    val forgottenTasks by remember {
+        derivedStateOf {
+            tasks.filter { 
+                val taskDate = it.deadline?.split(" ")?.firstOrNull()
+                it.status != "COMPLETED" && taskDate != null && taskDate < todayStr
+            }
+        }
+    }
+    
+    val progress by remember { 
+        derivedStateOf { if (tasks.isNotEmpty()) completedCount.toFloat() / tasks.size else 0f }
+    }
+
+    LaunchedEffect(completedCount, tasks.size, winOfTheDay, forgottenTasks.size) {
+        if (tasks.isNotEmpty()) {
+            val progressPercent = (progress * 100).toInt()
+            
+            isGeneratingMessage = true
+            
+            val prompt = when {
+                forgottenTasks.isNotEmpty() -> {
+                    """
+                    Context: User has ${forgottenTasks.size} tasks forgotten from previous days. 
+                    Example task: "${forgottenTasks.first().title}".
+                    Provide a supportive, non-guilt-tripping "Redemption" message (max 10 words) encouraging them to move these to today.
+                    Format: "Redemption: [Your message]"
+                    """
+                }
+                winOfTheDay != null -> {
+                    """
+                    Task: "${winOfTheDay?.title}" was the user's biggest completion today.
+                    Provide a very short, punchy celebration (max 8 words) explaining why completing a high-priority task like this matters.
+                    Format: "Victory Note: [Your message]"
+                    """
+                }
+                else -> {
+                    """
+                    Analyze stats: $completedCount finished out of ${tasks.size}.
+                    Provide a short, professional "Weekly Momentum" message (under 6 words).
+                    Respond ONLY with the message.
+                    """
+                }
+            }
+            
+            try {
+                val response = groqManager.analyzeTask("", prompt)
+                if (response.isNotBlank() && !response.contains("Error")) {
+                    when {
+                        response.contains("Redemption:") -> {
+                            aiRedemptionMessage = response.substringAfter("Redemption:").trim().replace("\"", "")
+                        }
+                        winOfTheDay != null && response.contains("Victory Note:") -> {
+                            aiWinCelebration = response.substringAfter("Victory Note:").trim().replace("\"", "")
+                        }
+                        else -> {
+                            aiMomentumMessage = response.replace("\"", "")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+            } finally {
+                isGeneratingMessage = false
+            }
+        }
+    }
+
     var selectedFilter by remember { mutableStateOf("All") }
 
     // Optimization: Deferred calculation using derivedStateOf for filtering
@@ -53,14 +144,6 @@ fun HistoryScreen(onBack: () -> Unit, onNavigateToHome: () -> Unit, onNavigateTo
         }
     }
 
-    val completedCount by remember {
-        derivedStateOf { tasks.count { it.status == "COMPLETED" } }
-    }
-    
-    val progress by remember { 
-        derivedStateOf { if (tasks.isNotEmpty()) completedCount.toFloat() / tasks.size else 0f }
-    }
-
     // Optimization: Grouping logic also inside derivedStateOf
     val groupedTasks by remember {
         derivedStateOf {
@@ -70,39 +153,12 @@ fun HistoryScreen(onBack: () -> Unit, onNavigateToHome: () -> Unit, onNavigateTo
         }
     }
 
-    val todayStr = remember { LocalDate.now().toString() }
-
-    // Lambda Hoisting: Prevent re-allocating lambdas on every recomposition
-    val onBackClick = remember(onBack, view) {
-        {
-            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-            onBack()
-        }
-    }
-    
-    val onSettingsClick = remember(onNavigateToSettings, view) {
-        {
-            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-            onNavigateToSettings()
-        }
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 CenterAlignedTopAppBar(
                     title = { Text("Logbook", fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp) },
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = onSettingsClick) {
-                            Icon(Icons.Default.Settings, null)
-                        }
-                    },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
                 )
             }
@@ -112,44 +168,77 @@ fun HistoryScreen(onBack: () -> Unit, onNavigateToHome: () -> Unit, onNavigateTo
                 contentPadding = PaddingValues(bottom = 120.dp)
             ) {
                 item(key = "momentum_card", contentType = "momentum") {
-                    Surface(
-                        modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
-                        shape = RoundedCornerShape(28.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                    ) {
-                        Column(modifier = Modifier.padding(24.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Insights, null, tint = MaterialTheme.colorScheme.onPrimary)
+                    Column(modifier = Modifier.padding(top = 16.dp)) {
+                        // Smart Redemption Card (If there are forgotten tasks)
+                        if (forgottenTasks.isNotEmpty()) {
+                            RedemptionCard(
+                                count = forgottenTasks.size,
+                                message = aiRedemptionMessage,
+                                onRedeem = {
+                                    scope.launch {
+                                        withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                            forgottenTasks.forEach { task ->
+                                                val newDeadline = todayStr + (task.deadline?.substringAfter(" ")?.let { " $it" } ?: "")
+                                                db.taskDao().updateTask(task.copy(deadline = newDeadline))
+                                            }
+                                            com.first_project.chronoai.ui1.widget.updateVyntaWidgets(context)
+                                        }
+                                    }
                                 }
-                                Spacer(Modifier.width(16.dp))
-                                Column {
-                                    Text("Weekly Momentum", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                                    Text("Great consistency!", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            
-                            Spacer(Modifier.height(24.dp))
-                            
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                InsightStat("Finished", completedCount.toString())
-                                InsightStat("Total", tasks.size.toString())
-                                InsightStat("Rate", "${(progress * 100).toInt()}%")
-                            }
-                            
-                            Spacer(Modifier.height(20.dp))
-                            
-                            val animatedProgress by animateFloatAsState(targetValue = progress, animationSpec = spring())
-                            LinearProgressIndicator(
-                                progress = { animatedProgress },
-                                modifier = Modifier.fillMaxWidth().height(10.dp).clip(CircleShape),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                             )
+                            Spacer(Modifier.height(16.dp))
+                        }
+
+                        // Win of the Day Highlight (Only if there is a win)
+                        winOfTheDay?.let { win ->
+                            WinOfTheDayCard(win, aiWinCelebration)
+                            Spacer(Modifier.height(16.dp))
+                        }
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(28.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                        ) {
+                            Column(modifier = Modifier.padding(24.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.primary, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Insights, null, tint = MaterialTheme.colorScheme.onPrimary)
+                                    }
+                                    Spacer(Modifier.width(16.dp))
+                                    Column {
+                                        Text("Weekly Momentum", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                        Text(
+                                            text = aiMomentumMessage, 
+                                            style = MaterialTheme.typography.titleMedium, 
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.animateContentSize()
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(Modifier.height(24.dp))
+                                
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    InsightStat("Finished", completedCount.toString())
+                                    InsightStat("Total", tasks.size.toString())
+                                    InsightStat("Rate", "${(progress * 100).toInt()}%")
+                                }
+                                
+                                Spacer(Modifier.height(20.dp))
+                                
+                                val animatedProgress by animateFloatAsState(targetValue = progress, animationSpec = spring())
+                                LinearProgressIndicator(
+                                    progress = { animatedProgress },
+                                    modifier = Modifier.fillMaxWidth().height(10.dp).clip(CircleShape),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                )
+                            }
                         }
                     }
                 }
@@ -201,6 +290,130 @@ fun HistoryScreen(onBack: () -> Unit, onNavigateToHome: () -> Unit, onNavigateTo
                         HistoryTaskCard(task)
                         Spacer(Modifier.height(12.dp))
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RedemptionCard(count: Int, message: String, onRedeem: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f))
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(MaterialTheme.colorScheme.secondary, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Autorenew,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            
+            Spacer(Modifier.width(20.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "REDEMPTION",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    "$count tasks left behind",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                if (message.isNotBlank()) {
+                    Text(
+                        message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+                
+                Button(
+                    onClick = onRedeem,
+                    modifier = Modifier.padding(top = 12.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text("Move to Today", style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WinOfTheDayCard(task: TaskEntity, celebration: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.EmojiEvents,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            
+            Spacer(Modifier.width(20.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "WIN OF THE DAY",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    task.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (celebration.isNotBlank()) {
+                    Text(
+                        celebration,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
             }
         }

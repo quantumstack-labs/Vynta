@@ -2,28 +2,45 @@ package com.first_project.chronoai.ui.theme
 
 import android.app.Activity
 import android.os.Build
+import androidx.compose.foundation.Indication
+import androidx.compose.foundation.IndicationNodeFactory
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.first_project.chronoai.ui1.viewmodel.ThemeMode
 
 val DarkColorScheme = darkColorScheme(
-    primary = Primary,
-    onPrimary = Color.Black,
-    secondary = Color(0xFFC8B99A),
-    onSecondary = Color.Black,
+    primary = Color(0xFFD0BCFF),
+    onPrimary = Color(0xFF381E72),
+    primaryContainer = Color(0xFF4F378B),
+    onPrimaryContainer = Color(0xFFEADDFF),
+    secondary = Color(0xFFCCC2DC),
+    onSecondary = Color(0xFF332D41),
+    secondaryContainer = Color(0xFF4A4458),
+    onSecondaryContainer = Color(0xFFE8DEF8),
+    tertiary = Color(0xFFEFB8C8),
+    onTertiary = Color(0xFF492532),
+    tertiaryContainer = Color(0xFF633B48),
+    onTertiaryContainer = Color(0xFFFFD8E4),
     background = Color(0xFF0E0E0F),
-    onBackground = Color.White,
+    onBackground = Color(0xFFE6E1E5),
     surface = Color(0xFF1A1A1C),
-    onSurface = Color.White,
-    surfaceVariant = Color(0xFF2A2A2C),
-    onSurfaceVariant = Color(0xFF9E9E9E)
+    onSurface = Color(0xFFE6E1E5),
+    surfaceVariant = Color(0xFF49454F),
+    onSurfaceVariant = Color(0xFFCAC4D0),
+    outline = Color(0xFF938F99)
 )
 
 val LightColorScheme = lightColorScheme(
@@ -38,6 +55,19 @@ val LightColorScheme = lightColorScheme(
     surfaceVariant = Color(0xFFE7E0EC),
     onSurfaceVariant = Color(0xFF49454F)
 )
+
+private object NoIndication : IndicationNodeFactory {
+    override fun create(interactionSource: InteractionSource): Modifier.Node {
+        return object : Modifier.Node(), DrawModifierNode {
+            override fun ContentDrawScope.draw() {
+                drawContent()
+            }
+        }
+    }
+
+    override fun equals(other: Any?): Boolean = other === this
+    override fun hashCode(): Int = System.identityHashCode(this)
+}
 
 @Composable
 fun VyntaTheme(
@@ -64,10 +94,14 @@ fun VyntaTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            window.navigationBarColor = colorScheme.background.toArgb()
+            window.statusBarColor = Color.Transparent.toArgb()
+            window.navigationBarColor = Color.Transparent.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
             WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+            }
         }
     }
 
@@ -75,6 +109,11 @@ fun VyntaTheme(
         colorScheme = colorScheme,
         typography = VyntaTypography,
         shapes = VyntaShapes,
-        content = content
+        content = {
+            CompositionLocalProvider(
+                LocalIndication provides NoIndication,
+                content = content
+            )
+        }
     )
 }

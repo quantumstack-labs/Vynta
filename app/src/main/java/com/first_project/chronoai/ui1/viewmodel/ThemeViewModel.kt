@@ -36,15 +36,19 @@ class ThemeViewModel(private val repository: UserPreferencesRepo) : ViewModel() 
         viewModelScope.launch { repository.updateEnergyWindows(enabled) }
     }
 
-    fun setFocusGuard(enabled: Boolean) {
-        viewModelScope.launch { repository.updateFocusGuard(enabled) }
+    fun setFocusShield(enabled: Boolean) {
+        viewModelScope.launch { repository.updateFocusShield(enabled) }
     }
 
     fun setVoicePersona(persona: String) {
         viewModelScope.launch { repository.updateVoicePersona(persona) }
     }
 
-    fun setDynamicGap(enabled: Boolean) {
-        viewModelScope.launch { repository.updateDynamicGap(enabled) }
+    fun setSmartSpacing(enabled: Boolean) {
+        viewModelScope.launch { repository.updateSmartSpacing(enabled) }
+    }
+
+    fun completeOnboarding() {
+        viewModelScope.launch { repository.updateOnboardingStatus(true) }
     }
 }

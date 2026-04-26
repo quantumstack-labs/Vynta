@@ -41,23 +41,49 @@ class CalendarRepository(private val calendarService: Calendar) {
         }
     }
 
+    suspend fun getUpcomingEvents(): List<Event> = withContext(Dispatchers.IO) {
+        try {
+            val now = System.currentTimeMillis()
+            // Fetch events for the next 7 days
+            val nextWeek = now + (7 * 24 * 60 * 60 * 1000L)
+            
+            val events = calendarService.events().list("primary")
+                .setTimeMin(DateTime(now))
+                .setTimeMax(DateTime(nextWeek))
+                .setOrderBy("startTime")
+                .setSingleEvents(true)
+                .execute()
+
+            return@withContext events.items ?: emptyList()
+        } catch (e: Exception) {
+            Log.e("CalendarRepository", "Error fetching upcoming events: ${e.message}")
+            return@withContext emptyList()
+        }
+    }
+
     suspend fun insertEvent(
         title: String, 
         startTimeMillis: Long, 
         endTimeMillis: Long, 
         priority: Int = 3,
+        energyLevel: String? = null,
         isRecurring: Boolean = false,
         rrule: String? = null
     ): Event? = withContext(Dispatchers.IO) {
         try {
             val event = Event().apply {
                 summary = title
-                description = "Priority: $priority"
+                var desc = "Priority: $priority"
+                if (energyLevel != null) {
+                    desc += "\nEnergy: $energyLevel"
+                }
+                description = desc
                 start = EventDateTime().setDateTime(DateTime(startTimeMillis)).setTimeZone(systemTimeZone)
                 end = EventDateTime().setDateTime(DateTime(endTimeMillis)).setTimeZone(systemTimeZone)
                 
                 if (isRecurring && !rrule.isNullOrEmpty()) {
-                    recurrence = listOf(rrule)
+                    val rule = if (rrule.startsWith("RRULE:", ignoreCase = true)) rrule else "RRULE:$rrule"
+                    recurrence = listOf(rule)
                 }
             }
 
@@ -81,6 +107,41 @@ class CalendarRepository(private val calendarService: Calendar) {
         } catch (e: Exception) {
             Log.e("CalendarRepository", "Error fetching freebusy: ${e.message}")
             return@withContext emptyList()
+        }
+    }
+
+    suspend fun updateEvent(
+        eventId: String,
+        title: String,
+        startTimeMillis: Long,
+        endTimeMillis: Long,
+        priority: Int = 3,
+        energyLevel: String? = null,
+        isRecurring: Boolean = false,
+        rrule: String? = null
+    ): Event? = withContext(Dispatchers.IO) {
+        try {
+            val event = calendarService.events().get("primary", eventId).execute()
+            event.summary = title
+            var desc = "Priority: $priority"
+            if (energyLevel != null) {
+                desc += "\nEnergy: $energyLevel"
+            }
+            event.description = desc
+            event.start = EventDateTime().setDateTime(DateTime(startTimeMillis)).setTimeZone(systemTimeZone)
+            event.end = EventDateTime().setDateTime(DateTime(endTimeMillis)).setTimeZone(systemTimeZone)
+            
+            if (isRecurring && !rrule.isNullOrEmpty()) {
+                val rule = if (rrule.startsWith("RRULE:", ignoreCase = true)) rrule else "RRULE:$rrule"
+                event.recurrence = listOf(rule)
+            } else {
+                event.recurrence = null
+            }
+            
+            return@withContext calendarService.events().update("primary", eventId, event).execute()
+        } catch (e: Exception) {
+            Log.e("CalendarRepository", "Error updating event: ${e.message}")
+            return@withContext null
         }
     }
 

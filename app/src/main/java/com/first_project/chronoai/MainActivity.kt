@@ -17,10 +17,11 @@ import com.first_project.chronoai.data.local.prefs.UserPreferencesRepo
 import com.first_project.chronoai.ui1.navigation.AppNavGraph
 import com.first_project.chronoai.ui1.viewmodel.ThemeViewModel
 import com.first_project.chronoai.ui1.viewmodel.ThemeViewModelFactory
+import com.first_project.chronoai.worker.FocusShieldWorker
 
 class MainActivity : ComponentActivity() {
     
-    private var shortcutTrigger = mutableStateOf<String?>(null)
+    private var deepLinkTrigger = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +35,16 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         
-        shortcutTrigger.value = intent?.getStringExtra("shortcut")
+        FocusShieldWorker.enqueue(this)
+        
+        // Handle initial shortcut or widget deep link
+        val shortcut = intent?.getStringExtra("shortcut")
+        val data = intent?.data?.toString()
+        deepLinkTrigger.value = when {
+            shortcut != null -> shortcut
+            data == "vynta://add_task" -> "plan_day"
+            else -> null
+        }
 
         setContent {
             val context = LocalContext.current
@@ -47,8 +57,8 @@ class MainActivity : ComponentActivity() {
             
             AppNavGraph(
                 themeViewModel = themeViewModel,
-                initialShortcut = shortcutTrigger.value,
-                onShortcutConsumed = { shortcutTrigger.value = null }
+                initialShortcut = deepLinkTrigger.value,
+                onShortcutConsumed = { deepLinkTrigger.value = null }
             )
         }
     }
@@ -56,6 +66,12 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        shortcutTrigger.value = intent.getStringExtra("shortcut")
+        val shortcut = intent.getStringExtra("shortcut")
+        val data = intent.data?.toString()
+        deepLinkTrigger.value = when {
+            shortcut != null -> shortcut
+            data == "vynta://add_task" -> "plan_day"
+            else -> null
+        }
     }
 }

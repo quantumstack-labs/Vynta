@@ -81,6 +81,20 @@ class VyntaHapticEngine(context: Context) {
     }
 
     /**
+     * Subtle spring feel for paging or small interactions
+     */
+    fun subtleSpring() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val effect = VibrationEffect.startComposition()
+                .addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, 0.4f)
+                .compose()
+            vibrator.vibrate(effect)
+        } else {
+            vibrator.vibrate(VibrationEffect.createOneShot(10, 50))
+        }
+    }
+
+    /**
      * Rewarding sparkle sequence for success
      */
     fun successSparkle() {

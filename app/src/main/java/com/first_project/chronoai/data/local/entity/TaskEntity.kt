@@ -17,5 +17,6 @@ data class TaskEntity(
     val deadlineTime: String? = null,
     val priority: Int = 3, // Requirement: priority (1-5)
     val calendarEventId: String? = null,
-    val subtasks: List<String> = emptyList()
+    val subtasks: List<String> = emptyList(),
+    val schedulingReason: String? = null // Why this slot receipt
 )

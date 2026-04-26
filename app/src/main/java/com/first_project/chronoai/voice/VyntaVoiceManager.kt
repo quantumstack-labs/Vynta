@@ -37,9 +37,30 @@ class VyntaVoiceManager(context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
-    fun speak(text: String) {
+    fun speak(text: String, persona: String = "Atlas") {
         val params = android.os.Bundle()
-        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "")
+        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "VyntaUtteranceId")
+        
+        // Adjust voice parameters based on persona
+        when (persona) {
+            "Atlas" -> {
+                tts?.setPitch(0.8f) // Deeper
+                tts?.setSpeechRate(0.9f) // Slower/Steady
+            }
+            "Lyra" -> {
+                tts?.setPitch(1.2f) // Higher/Lighter
+                tts?.setSpeechRate(1.1f) // Faster/Energetic
+            }
+            "Sloane" -> {
+                tts?.setPitch(1.0f) // Neutral
+                tts?.setSpeechRate(1.0f) // Standard
+            }
+            "Orion" -> {
+                tts?.setPitch(0.7f) // Very Deep
+                tts?.setSpeechRate(0.8f) // Very Slow/Wise
+            }
+        }
+
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "VyntaUtteranceId")
     }
 
