@@ -1,3 +1,7 @@
+# Disable Obfuscation for 100% Stability
+# This prevents R8 from renaming fields, which is the #1 cause of AI and Sync bugs.
+-dontobfuscate
+
 # Groq API Models
 -keep class com.first_project.chronoai.ai.** { *; }
 
