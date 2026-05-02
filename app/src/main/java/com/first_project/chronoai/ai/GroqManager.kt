@@ -27,20 +27,29 @@ class GroqManager(private val apiKey: String) {
     }
 
     suspend fun analyzeTask(taskText: String, customPrompt: String? = null): String {
+        val trimmedKey = apiKey.trim()
+        if (trimmedKey.isEmpty()) {
+            return "Error: Groq API Key is missing. Check local.properties."
+        }
+
         return try {
             val prompt = customPrompt ?: PromptBuilder.buildTaskPrompt(taskText, com.first_project.chronoai.data.local.prefs.SchedulingPreferences())
             val request = GroqRequest(
-                model = "llama-3.3-70b-versatile",
+                model = "llama3-70b-8192", // Using standard model for better compatibility
                 messages = listOf(
                     Message(role = "user", content = prompt)
                 )
             )
-            val response = apiService.getCompletion("Bearer $apiKey", request)
+            val response = apiService.getCompletion("Bearer $trimmedKey", request)
             response.choices.firstOrNull()?.message?.content ?: "{}"
         } catch (e: retrofit2.HttpException) {
             val errorBody = e.response()?.errorBody()?.string()
             android.util.Log.e("GroqManager", "HTTP Error: $errorBody", e)
-            "Error: ${e.code()} - $errorBody"
+            if (e.code() == 401) {
+                "Error: 401 - Invalid API Key. Please verify the key in local.properties and Rebuild the project."
+            } else {
+                "Error: ${e.code()} - $errorBody"
+            }
         } catch (e: Exception) {
             android.util.Log.e("GroqManager", "API request failed", e)
             "Error: ${e.localizedMessage ?: "Unknown error"}"
