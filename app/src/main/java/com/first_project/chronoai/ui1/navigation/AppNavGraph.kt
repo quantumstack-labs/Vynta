@@ -77,7 +77,11 @@ fun AppNavGraph(
     val themeMode = prefs.themeMode
 
     val account = GoogleSignIn.getLastSignedInAccount(context)
-    val startDestination = if (account != null) "home" else "login"
+    
+    // Safety check: Even if account exists, ensure they've accepted terms
+    val startDestination = remember(account, prefs.hasAcceptedTerms) {
+        if (account == null || !prefs.hasAcceptedTerms) "login" else "home"
+    }
 
     val database = remember { DatabaseProvider.getDatabase(context) }
     val taskDao = remember { database.taskDao() }
@@ -230,6 +234,9 @@ fun AppNavGraph(
             ) {
 
                 composable("login") {
+                    // Reset check for new sessions
+                    LaunchedEffect(Unit) { hasCheckedChangelog = false }
+
                     LoginScreen(
                         onLoginSuccess = {
                             scope.launch {

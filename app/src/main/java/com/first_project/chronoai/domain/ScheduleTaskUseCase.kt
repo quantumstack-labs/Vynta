@@ -81,7 +81,17 @@ class ScheduleTaskUseCase(
             } catch (e: Exception) {
                 // If API fails, we must not assume it's free. Treat as a conflict to be safe
                 // or at least notify the system of the sync failure.
-                return@withContext SchedulingResult.Error("Unable to check calendar availability. Please check your connection.")
+                return@withContext SchedulingResult.Error("Unable to check calendar availability. Please check your internet connection.")
+            }
+
+            // Case 2: Time provided but there's a conflict
+            if (!force && busySlots.isNotEmpty()) {
+                val suggestion = findOptimalSlot(task, date, calendarRepository, aiManager)
+                // If finding optimal slot also fails (usually network), show the error
+                if (suggestion is SchedulingResult.Conflict && suggestion.suggestion?.contains("Error") == true) {
+                    return@withContext SchedulingResult.Error("Network error: Could not find a free spot. Please check your connection.")
+                }
+                return@withContext suggestion
             }
 
             // Requirement: Use AI-generated reason if available
