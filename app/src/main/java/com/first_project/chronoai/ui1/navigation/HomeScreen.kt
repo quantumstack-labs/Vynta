@@ -96,7 +96,7 @@ fun HomeScreen(
             withContext(kotlinx.coroutines.Dispatchers.IO) {
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
-                        val body = response.body()?.string()
+                        val body = response.body?.string()
                         if (body != null) {
                             val json = org.json.JSONObject(body)
                             val latestCode = json.getInt("latestVersionCode")
