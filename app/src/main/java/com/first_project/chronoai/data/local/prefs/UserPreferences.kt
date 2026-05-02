@@ -21,7 +21,8 @@ data class SchedulingPreferences(
     val smartSpacingEnabled: Boolean = false,
     val hasCompletedOnboarding: Boolean = false,
     val lastSeenVersion: Int = 0,
-    val hasAcceptedTerms: Boolean = false
+    val hasAcceptedTerms: Boolean = false,
+    val isLoaded: Boolean = false
 )
 
 class UserPreferencesRepo(private val context: Context) {
@@ -53,7 +54,8 @@ class UserPreferencesRepo(private val context: Context) {
             smartSpacingEnabled = prefs[SMART_SPACING] ?: false,
             hasCompletedOnboarding = prefs[HAS_COMPLETED_ONBOARDING] ?: false,
             lastSeenVersion = prefs[LAST_SEEN_VERSION] ?: 0,
-            hasAcceptedTerms = prefs[HAS_ACCEPTED_TERMS] ?: false
+            hasAcceptedTerms = prefs[HAS_ACCEPTED_TERMS] ?: false,
+            isLoaded = true
         )
     }
 

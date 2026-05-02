@@ -51,7 +51,6 @@ import com.first_project.chronoai.data.local.db.DatabaseProvider
 import com.first_project.chronoai.data.local.prefs.UserPreferencesRepo
 import com.first_project.chronoai.domain.ScheduleTaskUseCase
 import com.first_project.chronoai.ui.theme.VyntaTheme
-import com.first_project.chronoai.ui1.viewmodel.HomeViewModel
 import com.first_project.chronoai.ui1.viewmodel.ThemeViewModel
 import com.first_project.chronoai.ui1.navigation.ChangelogScreen
 import com.first_project.chronoai.ui1.navigation.TermsScreen
@@ -76,8 +75,17 @@ fun AppNavGraph(
     val prefs by themeViewModel.prefs.collectAsStateWithLifecycle()
     val themeMode = prefs.themeMode
 
+    // Don't render ANYTHING until preferences are loaded from disk
+    if (!prefs.isLoaded) {
+        Box(Modifier.fillMaxSize().background(Color.Black))
+        return
+    }
+
     val account = GoogleSignIn.getLastSignedInAccount(context)
-    val startDestination = if (account != null) "home" else "login"
+    val startDestination = remember(account, prefs.hasAcceptedTerms) {
+        // Only start at Home if they are logged in AND have accepted terms
+        if (account != null && prefs.hasAcceptedTerms) "home" else "login"
+    }
 
     val database = remember { DatabaseProvider.getDatabase(context) }
     val taskDao = remember { database.taskDao() }
@@ -104,7 +112,7 @@ fun AppNavGraph(
     val groqManager = remember { GroqManager(BuildConfig.GROQ_API_KEY) }
 
     val homeViewModel = remember(calendarRepository, taskDao, groqManager) {
-        HomeViewModel(
+        com.first_project.chronoai.ui1.viewmodel.HomeViewModel(
             repository = calendarRepository,
             taskDao = taskDao,
             aiManager = groqManager
@@ -124,10 +132,10 @@ fun AppNavGraph(
         )
     }
 
-    // Stable navigation for shortcuts
+    // Shortcut handling
     LaunchedEffect(initialShortcut) {
         if (initialShortcut != null) {
-            delay(300) // Stability delay
+            delay(500)
             when (initialShortcut) {
                 "plan_day" -> navController.navigate("input?triggerMic=true")
                 "history" -> navController.navigate("history")
@@ -135,8 +143,6 @@ fun AppNavGraph(
             onShortcutConsumed()
         }
     }
-
-    var hasShownChangelogThisSession by rememberSaveable { mutableStateOf(false) }
 
     VyntaTheme(themeMode = themeMode) {
         Surface(
@@ -239,18 +245,14 @@ fun AppNavGraph(
                 }
 
                 composable("home") {
-                    // Trigger changelog only on Home
+                    // Check for changelog only when home is reached
                     LaunchedEffect(prefs.lastSeenVersion) {
-                        val currentVersion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
-                        } else {
-                            @Suppress("DEPRECATION")
-                            context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+                        val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).let {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) it.longVersionCode.toInt() else it.versionCode
                         }
                         
-                        if (currentVersion > prefs.lastSeenVersion && !hasShownChangelogThisSession) {
+                        if (currentVersion > prefs.lastSeenVersion) {
                             navController.navigate("changelog")
-                            hasShownChangelogThisSession = true
                         }
                     }
 
@@ -330,11 +332,8 @@ fun AppNavGraph(
                 composable("changelog") {
                     ChangelogScreen(onDismiss = {
                         scope.launch {
-                            val currentVersion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
-                            } else {
-                                @Suppress("DEPRECATION")
-                                context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+                            val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).let {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) it.longVersionCode.toInt() else it.versionCode
                             }
                             userPreferencesRepo.updateLastSeenVersion(currentVersion)
                             navController.popBackStack()

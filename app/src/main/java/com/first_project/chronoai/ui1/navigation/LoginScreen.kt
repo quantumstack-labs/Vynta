@@ -52,14 +52,6 @@ fun LoginScreen(
     }
     
     var loginError by remember { mutableStateOf<String?>(null) }
-
-    // Auto-login logic: If account exists AND terms are accepted, skip to success
-    LaunchedEffect(Unit) {
-        val account = GoogleSignIn.getLastSignedInAccount(context)
-        if (account != null && isTermsAccepted) {
-            onLoginSuccess()
-        }
-    }
     
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
