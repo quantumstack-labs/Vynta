@@ -328,6 +328,9 @@ class CompleteTaskAction : ActionCallback {
                 val newStatus = if (it.status == "COMPLETED") "SCHEDULED" else "COMPLETED"
                 taskDao.updateTask(it.copy(status = newStatus))
                 android.util.Log.d("VyntaWidget", "Task $taskId status changed to $newStatus")
+                
+                // Explicitly trigger a refresh for all Vynta widgets
+                VyntaWidget().update(context, glanceId)
             } ?: android.util.Log.e("VyntaWidget", "Task $taskId not found in DB")
         }
     }
