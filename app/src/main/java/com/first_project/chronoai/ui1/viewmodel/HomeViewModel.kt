@@ -51,21 +51,30 @@ class HomeViewModel(
      */
     val personalTasks: StateFlow<List<TaskEntity>> = _selectedDate.flatMapLatest { date ->
         val dateString = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        val isToday = if (date == LocalDate.now()) 1 else 0
         
         combine(
-            taskDao.getTasksForDate(dateString, isToday),
+            taskDao.getAllTasks(), // Fetch all tasks to catch recurring ones on future dates
             _energyFilter,
             _priorityFilter,
             _rawEvents
-        ) { tasks, energy, priority, rawEvents ->
-            tasks.filter { task ->
+        ) { allTasks, energy, priority, rawEvents ->
+            allTasks.filter { task ->
+                // A task matches this date if:
+                // 1. Its stored deadline matches the date (for standard tasks)
+                // 2. It has no deadline and we are looking at today
+                // 3. It's a recurring task and its parent ID or recurring ID matches an event on THIS day
+                val isCalendarMatch = task.calendarEventId != null && rawEvents.any { event ->
+                    event.id == task.calendarEventId || event.recurringEventId == task.calendarEventId
+                }
+                
+                val matchesDate = task.deadline?.startsWith(dateString) == true || 
+                                 (task.deadline == null && date == LocalDate.now()) ||
+                                 isCalendarMatch
+                
                 val matchesEnergy = energy == null || task.energyLevel == energy
                 val matchesPriority = priority == null || task.priority == priority
                 
-                // Note: SQL already handled the date match, but we still ensure 
-                // consistency here if needed for any reason.
-                matchesEnergy && matchesPriority
+                matchesDate && matchesEnergy && matchesPriority
             }.distinctBy { it.id }.sortedByDescending { it.priority }
         }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())

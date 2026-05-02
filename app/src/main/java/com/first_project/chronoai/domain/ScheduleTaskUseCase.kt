@@ -75,8 +75,14 @@ class ScheduleTaskUseCase(
             val endMillis = endDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
             // Fetch BusySlots with user-defined buffer
-            val busySlots = calendarRepository.getBusySlots(startMillis - bufferMillis, endMillis + bufferMillis)
-                .filter { it.start.value != startMillis && it.end.value != endMillis }
+            val busySlots = try {
+                calendarRepository.getBusySlots(startMillis - bufferMillis, endMillis + bufferMillis)
+                    .filter { it.start.value != startMillis && it.end.value != endMillis }
+            } catch (e: Exception) {
+                // If API fails, we must not assume it's free. Treat as a conflict to be safe
+                // or at least notify the system of the sync failure.
+                return@withContext SchedulingResult.Error("Unable to check calendar availability. Please check your connection.")
+            }
 
             // Requirement: Use AI-generated reason if available
             val reason = task.schedulingReason ?: if (task.energyLevel == "High") {

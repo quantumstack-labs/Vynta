@@ -232,13 +232,16 @@ fun AppNavGraph(
                 composable("login") {
                     LoginScreen(
                         onLoginSuccess = {
-                            if (!prefs.hasCompletedOnboarding) {
-                                navController.navigate("discovery") {
-                                    popUpTo("login") { inclusive = true }
-                                }
-                            } else {
-                                navController.navigate("home") {
-                                    popUpTo("login") { inclusive = true }
+                            scope.launch {
+                                val tasks = taskDao.getAllTasksDirect()
+                                if (tasks.isNotEmpty() || prefs.hasCompletedOnboarding) {
+                                    navController.navigate("home") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
+                                } else {
+                                    navController.navigate("discovery") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
                                 }
                             }
                         },

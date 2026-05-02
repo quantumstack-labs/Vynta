@@ -38,6 +38,7 @@ data class Choice(
     val message: Message
 )
 
+@Keep
 interface GroqApiService {
     @POST("v1/chat/completions")
     suspend fun getCompletion(

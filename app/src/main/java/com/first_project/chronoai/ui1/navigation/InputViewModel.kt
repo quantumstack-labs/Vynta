@@ -162,6 +162,9 @@ class InputViewModel(
                     )
                 } else {
                     val resultJson = aiManager.analyzeTask(input)
+                    if (resultJson.startsWith("Error:")) {
+                        throw Exception(resultJson.removePrefix("Error:"))
+                    }
                     try {
                         ResponseParser.parse(resultJson, input)
                     } catch (e: Exception) {

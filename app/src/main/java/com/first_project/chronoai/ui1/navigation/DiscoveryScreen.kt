@@ -40,6 +40,7 @@ fun DiscoveryScreen(
     val scope = rememberCoroutineScope()
     
     var step by remember { mutableIntStateOf(0) }
+    var selectedPersona by remember { mutableStateOf<String?>(null) }
     
     // Background Color State for transitions
     val bgColor by animateColorAsState(
@@ -87,30 +88,37 @@ fun DiscoveryScreen(
                         }
                     }
                     1 -> {
-                        DiscoveryQuestion(
-                            title = "Vocal Essence",
-                            subtitle = "How should your AI partner talk to you?",
-                            options = listOf("Atlas", "Lyra", "Sloane", "Orion"),
-                            onSelect = { persona ->
-                                hapticManager.play(HapticManager.VyntaEffect.MIC_TRIGGER)
-                                themeViewModel.setVoicePersona(persona)
-                                
-                                val phrase = when (persona) {
-                                    "Atlas" -> "I am Atlas. I will ensure your schedule remains balanced and your objectives stay on track."
-                                    "Lyra" -> "I'm Lyra. I'll be here to keep your momentum high and your day flowing smoothly."
-                                    "Sloane" -> "This is Sloane. My focus is your efficiency. I’ll keep the briefings concise."
-                                    "Orion" -> "I am Orion. I've analyzed your upcoming tasks and I'm ready to help you optimize."
-                                    else -> "I am your Vynta partner."
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            DiscoveryQuestion(
+                                title = "Vocal Essence",
+                                subtitle = "How should your AI partner talk to you?",
+                                options = listOf("Atlas", "Lyra", "Sloane", "Orion"),
+                                selectedOption = selectedPersona,
+                                onSelect = { persona ->
+                                    hapticManager.play(HapticManager.VyntaEffect.MIC_TRIGGER)
+                                    selectedPersona = persona
+                                    themeViewModel.setVoicePersona(persona)
+                                    
+                                    val phrase = when (persona) {
+                                        "Atlas" -> "I am Atlas. I will ensure your schedule remains balanced."
+                                        "Lyra" -> "I'm Lyra. I'll be here to keep your momentum high."
+                                        "Sloane" -> "This is Sloane. I’ll keep the briefings concise."
+                                        "Orion" -> "I am Orion. I'm ready to help you optimize."
+                                        else -> "I am your Vynta partner."
+                                    }
+                                    voiceManager.speak(phrase, persona)
                                 }
-                                voiceManager.speak(phrase, persona)
-                                
-                                // Delayed transition to let the user hear the voice
-                                scope.launch {
-                                    delay(3000)
+                            )
+                            
+                            Spacer(Modifier.height(32.dp))
+                            
+                            AnimatedVisibility(visible = selectedPersona != null) {
+                                DiscoveryButton("Next Essence") {
+                                    hapticManager.play(HapticManager.VyntaEffect.CLICK)
                                     step = 2
                                 }
                             }
-                        )
+                        }
                     }
                     2 -> {
                         DiscoveryQuestion(
@@ -194,7 +202,13 @@ fun DiscoveryGreeting() {
 }
 
 @Composable
-fun DiscoveryQuestion(title: String, subtitle: String, options: List<String>, onSelect: (String) -> Unit) {
+fun DiscoveryQuestion(
+    title: String, 
+    subtitle: String, 
+    options: List<String>, 
+    selectedOption: String? = null,
+    onSelect: (String) -> Unit
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             title.uppercase(), 
@@ -214,15 +228,16 @@ fun DiscoveryQuestion(title: String, subtitle: String, options: List<String>, on
         )
         Spacer(Modifier.height(64.dp))
         options.forEach { option ->
+            val isSelected = option == selectedOption
             Button(
                 onClick = { onSelect(option) },
                 modifier = Modifier.fillMaxWidth().height(72.dp).padding(vertical = 8.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), 
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), 
+                    contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                 ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
             ) {
                 Text(option, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
             }

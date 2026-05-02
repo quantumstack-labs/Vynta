@@ -108,7 +108,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 20.dp),
-                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 120.dp)
+                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 180.dp)
             ) {
                 item(key = "briefing", contentType = "briefing") {
                     val greeting = remember {
