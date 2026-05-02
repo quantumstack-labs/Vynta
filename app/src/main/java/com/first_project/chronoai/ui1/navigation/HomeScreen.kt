@@ -38,7 +38,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalUriHandler
 import com.first_project.chronoai.data.local.entity.TaskEntity
+import kotlinx.coroutines.withContext
 import com.first_project.chronoai.ui.theme.*
 import com.first_project.chronoai.ui1.viewmodel.HomeViewModel
 import java.time.LocalDate
@@ -69,12 +71,9 @@ fun HomeScreen(
     val dateListState = rememberLazyListState()
     val scrollState = rememberLazyListState()
     val today = remember { LocalDate.now() }
-
-    val showStatusBarBlur by remember {
-        derivedStateOf {
-            scrollState.firstVisibleItemIndex > 0 || scrollState.firstVisibleItemScrollOffset > 10
-        }
-    }
+    
+    val uriHandler = LocalUriHandler.current
+    var showUpdateBanner by remember { mutableStateOf(false) }
 
     // Lambda Hoisting
     val onMicClick = remember(onNavigateToInput, view) {
@@ -86,6 +85,37 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         viewModel.fetchEvents()
+        
+        // Check for updates from GitHub VERSION.json
+        try {
+            val client = okhttp3.OkHttpClient()
+            val request = okhttp3.Request.Builder()
+                .url("https://raw.githubusercontent.com/quantumstack-labs/Vynta/main/VERSION.json")
+                .build()
+            
+            withContext(kotlinx.coroutines.Dispatchers.IO) {
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body()?.string()
+                        if (body != null) {
+                            val json = org.json.JSONObject(body)
+                            val latestCode = json.getInt("latestVersionCode")
+                            val currentCode = context.packageManager.getPackageInfo(context.packageName, 0).let {
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) it.longVersionCode.toInt()
+                                else it.versionCode
+                            }
+                            if (latestCode > currentCode) {
+                                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    showUpdateBanner = true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Silently fail if no internet or repo private
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -110,6 +140,43 @@ fun HomeScreen(
                     .padding(horizontal = 20.dp),
                 contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 180.dp)
             ) {
+                item(key = "update_banner") {
+                    AnimatedVisibility(
+                        visible = showUpdateBanner,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Surface(
+                            modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
+                            shape = RoundedCornerShape(24.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            onClick = { uriHandler.openUri("https://github.com/quantumstack-labs/Vynta/releases/latest") }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Update, null, tint = MaterialTheme.colorScheme.onPrimary)
+                                Spacer(Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "New Version Available",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                    Text(
+                                        "Update Vynta for the latest fixes and features.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onPrimary)
+                            }
+                        }
+                    }
+                }
+
                 item(key = "briefing", contentType = "briefing") {
                     val greeting = remember {
                         when(Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
