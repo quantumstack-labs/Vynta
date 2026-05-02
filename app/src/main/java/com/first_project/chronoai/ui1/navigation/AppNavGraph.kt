@@ -77,11 +77,7 @@ fun AppNavGraph(
     val themeMode = prefs.themeMode
 
     val account = GoogleSignIn.getLastSignedInAccount(context)
-    
-    // Safety check: Even if account exists, ensure they've accepted terms
-    val startDestination = remember(account, prefs.hasAcceptedTerms) {
-        if (account == null || !prefs.hasAcceptedTerms) "login" else "home"
-    }
+    val startDestination = if (account != null) "home" else "login"
 
     val database = remember { DatabaseProvider.getDatabase(context) }
     val taskDao = remember { database.taskDao() }
@@ -105,7 +101,6 @@ fun AppNavGraph(
         )
     }
 
-    // Securely fetching API Key from BuildConfig
     val groqManager = remember { GroqManager(BuildConfig.GROQ_API_KEY) }
 
     val homeViewModel = remember(calendarRepository, taskDao, groqManager) {
@@ -125,41 +120,14 @@ fun AppNavGraph(
             aiManager = groqManager,
             homeViewModel = homeViewModel,
             scheduleTaskUseCase = scheduleTaskUseCase,
-               userPreferencesRepo = userPreferencesRepo
+            userPreferencesRepo = userPreferencesRepo
         )
     }
 
-    // Track if we've already checked for changelog this session to avoid repeats
-    var hasCheckedChangelog by remember { mutableStateOf(false) }
-
-    // Handle initial shortcuts and changelog
-    LaunchedEffect(initialShortcut, prefs.lastSeenVersion, account, prefs.hasAcceptedTerms) {
-        val currentVersion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
-        } else {
-            @Suppress("DEPRECATION")
-            context.packageManager.getPackageInfo(context.packageName, 0).versionCode
-        }
-        
-        if (!hasCheckedChangelog && account != null && prefs.hasAcceptedTerms) {
-            // Check if it's an update or first launch with a pending changelog
-            if (currentVersion > prefs.lastSeenVersion) {
-                // Delay slightly to ensure DataStore has emitted the latest value 
-                // and we're not just seeing the initial 0.
-                delay(600) 
-                if (currentVersion > prefs.lastSeenVersion) {
-                    val currentRoute = navController.currentDestination?.route
-                    if (currentRoute != "changelog" && currentRoute != "terms" && currentRoute != "login") {
-                        navController.navigate("changelog")
-                        hasCheckedChangelog = true
-                    }
-                }
-            } else {
-                hasCheckedChangelog = true
-            }
-        }
-
-        if (initialShortcut != null && !hasCheckedChangelog) {
+    // Stable navigation for shortcuts
+    LaunchedEffect(initialShortcut) {
+        if (initialShortcut != null) {
+            delay(300) // Stability delay
             when (initialShortcut) {
                 "plan_day" -> navController.navigate("input?triggerMic=true")
                 "history" -> navController.navigate("history")
@@ -167,6 +135,8 @@ fun AppNavGraph(
             onShortcutConsumed()
         }
     }
+
+    var hasShownChangelogThisSession by rememberSaveable { mutableStateOf(false) }
 
     VyntaTheme(themeMode = themeMode) {
         Surface(
@@ -234,22 +204,10 @@ fun AppNavGraph(
             ) {
 
                 composable("login") {
-                    // Reset check for new sessions
-                    LaunchedEffect(Unit) { hasCheckedChangelog = false }
-
                     LoginScreen(
                         onLoginSuccess = {
-                            scope.launch {
-                                val tasks = taskDao.getAllTasksDirect()
-                                if (tasks.isNotEmpty() || prefs.hasCompletedOnboarding) {
-                                    navController.navigate("home") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
-                                } else {
-                                    navController.navigate("discovery") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
-                                }
+                            navController.navigate("home") {
+                                popUpTo("login") { inclusive = true }
                             }
                         },
                         onNavigateToTerms = { navController.navigate("terms") },
@@ -281,6 +239,21 @@ fun AppNavGraph(
                 }
 
                 composable("home") {
+                    // Trigger changelog only on Home
+                    LaunchedEffect(prefs.lastSeenVersion) {
+                        val currentVersion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
+                        } else {
+                            @Suppress("DEPRECATION")
+                            context.packageManager.getPackageInfo(context.packageName, 0).versionCode
+                        }
+                        
+                        if (currentVersion > prefs.lastSeenVersion && !hasShownChangelogThisSession) {
+                            navController.navigate("changelog")
+                            hasShownChangelogThisSession = true
+                        }
+                    }
+
                     HomeScreen(
                         viewModel = homeViewModel,
                         onNavigateToInput = { taskId -> 
