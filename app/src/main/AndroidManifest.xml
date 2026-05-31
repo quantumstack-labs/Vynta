@@ -10,6 +10,13 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -43,6 +50,35 @@
         </activity>
 
         <receiver
+            android:name=".notification.TaskTriggerReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".receiver.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receiver.SunsetReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".receiver.NotificationActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.first_project.chronoai.ACTION_COMPLETE_TASK" />
+                <action android:name="com.first_project.chronoai.ACTION_REFLOW" />
+                <action android:name="com.first_project.chronoai.ACTION_SHIELD" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".ui1.widget.VyntaWidgetReceiver"
             android:exported="false"
             android:label="Vynta Tasks">
@@ -53,6 +89,14 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/vynta_widget_info" />
         </receiver>
+
+        <service
+            android:name=".notification.LiveTaskService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                      android:value="Live task progress tracking for Android 16 Rich Ongoing Notifications" />
+        </service>
 
     </application>
 

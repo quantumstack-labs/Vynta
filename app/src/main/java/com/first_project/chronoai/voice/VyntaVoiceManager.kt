@@ -13,6 +13,9 @@ class VyntaVoiceManager(context: Context) : TextToSpeech.OnInitListener {
     private val _isSpeaking = MutableStateFlow(false)
     val isSpeaking: StateFlow<Boolean> = _isSpeaking
 
+    private val _currentWordIndex = MutableStateFlow(-1)
+    val currentWordIndex: StateFlow<Int> = _currentWordIndex
+
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             val result = tts?.setLanguage(Locale.US)
@@ -23,15 +26,23 @@ class VyntaVoiceManager(context: Context) : TextToSpeech.OnInitListener {
             tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {
                     _isSpeaking.value = true
+                    _currentWordIndex.value = 0
                 }
 
                 override fun onDone(utteranceId: String?) {
                     _isSpeaking.value = false
+                    _currentWordIndex.value = -1
                 }
 
                 @Deprecated("Deprecated in Java")
                 override fun onError(utteranceId: String?) {
                     _isSpeaking.value = false
+                    _currentWordIndex.value = -1
+                }
+
+                override fun onRangeStart(utteranceId: String?, start: Int, end: Int, frame: Int) {
+                    // Logic to find word index from character start
+                    _currentWordIndex.value = start 
                 }
             })
         }
@@ -40,6 +51,9 @@ class VyntaVoiceManager(context: Context) : TextToSpeech.OnInitListener {
     fun speak(text: String, persona: String = "Atlas") {
         val params = android.os.Bundle()
         params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "VyntaUtteranceId")
+        
+        // We'll pass the full text and use onRangeStart to track progress
+        _currentWordIndex.value = 0
         
         // Adjust voice parameters based on persona
         when (persona) {

@@ -22,8 +22,8 @@ android {
         applicationId = "com.first_project.chronoai"
         minSdk = 31
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.1.1"
+        versionCode = 7
+        versionName = "3.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -78,6 +78,9 @@ dependencies {
 
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Biometric
+    implementation("androidx.biometric:biometric-ktx:1.2.0-alpha05")
 
     // Glance App Widget
     implementation(libs.androidx.glance.appwidget)

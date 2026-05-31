@@ -77,11 +77,21 @@ class ScheduleTaskUseCase(
             // Fetch BusySlots with user-defined buffer
             val busySlots = try {
                 calendarRepository.getBusySlots(startMillis - bufferMillis, endMillis + bufferMillis)
-                    .filter { it.start.value != startMillis && it.end.value != endMillis }
+                    .let { slots ->
+                        if (existingEventId == null) slots
+                        else slots.filter { 
+                            // Only filter out the EXACT same slot if we are updating, otherwise any overlap is a conflict
+                            it.start.value != startMillis || it.end.value != endMillis 
+                        }
+                    }
             } catch (e: Exception) {
-                // If API fails, we must not assume it's free. Treat as a conflict to be safe
-                // or at least notify the system of the sync failure.
-                return@withContext SchedulingResult.Error("Unable to check calendar availability. Please check your internet connection.")
+                // If API fails, we must not assume it's free. 
+                val errorMsg = if (e.message?.contains("403") == true || e.message?.contains("Forbidden") == true) {
+                    "Calendar API access denied. Please verify your Google Cloud project settings and ensure 'Google Calendar API' is enabled."
+                } else {
+                    "Unable to check calendar availability: ${e.localizedMessage}"
+                }
+                return@withContext SchedulingResult.Error(errorMsg)
             }
 
             // Case 2: Time provided but there's a conflict
@@ -163,6 +173,8 @@ class ScheduleTaskUseCase(
             "$s-$e"
         }
 
+        val schedulingMode = if ((prefs.workEnd - prefs.workStart) < 8) "STRICT (Narrow window, prioritize efficiency)" else "FLEXIBLE (Wide window, allow breathing room)"
+
         val prompt = """
             The user wants to schedule "${task.title}" (${task.durationMinutes} mins).
             Today's Date: $date.
@@ -170,13 +182,18 @@ class ScheduleTaskUseCase(
             Current busy slots for $date: [$busyContext].
             Preferred Energy Level: ${task.energyLevel}.
             Required Buffer: $bufferMinutes minutes.
+            Active Hours: ${prefs.workStart.toInt()}:00 to ${prefs.workEnd.toInt()}:00.
+            Scheduling Mode: $schedulingMode.
             
             YOUR TASK:
             1. Find a free slot STRICTLY ON $date that fits their energy level and respects the $bufferMinutes-minute buffer.
             2. CRITICAL: Only suggest times that are in the FUTURE (after ${LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))} if the date is today). 
-            3. DO NOT suggest tomorrow's date unless specifically requested. If no slots are available today, suggest the best available time today anyway and let the user decide.
-            4. If High energy: Prefer 08:00-11:00. Medium: 11:00-14:00. Low: 14:00-17:00.
-            5. Respond ONLY with this JSON:
+            3. CRITICAL: Suggested time MUST be WITHIN Active Hours (${prefs.workStart.toInt()}:00 to ${prefs.workEnd.toInt()}:00).
+            4. DO NOT suggest tomorrow's date unless specifically requested.
+            5. If High energy: Prefer 08:00-11:00. Medium: 11:00-14:00. Low: 14:00-17:00.
+            6. FORMAT: Respond ONLY with this JSON. Ensure 'new_time' is a valid HH:mm time (00-23:00-59).
+            7. MESSAGE: Keep 'suggestion' very brief, empathetic, and user-friendly. DO NOT mention math, buffers, or busy slots (e.g., "I've found a spot at 14:00! Shall we?").
+            
             {
                 "suggestion": "I've found a spot at [TIME]! Shall we?",
                 "new_time": "HH:mm"
@@ -184,6 +201,10 @@ class ScheduleTaskUseCase(
         """.trimIndent()
         
         val aiResult = aiManager.analyzeTask(taskText = "", customPrompt = prompt)
+        
+        if (aiResult.startsWith("Error")) {
+            return SchedulingResult.Error("Network error: Could not find a free spot. Please check your internet connection.")
+        }
         
         var suggestedTime: String? = null
         var suggestionMessage = "I've found an optimal spot for this. Shall we schedule it?"
@@ -208,14 +229,22 @@ class ScheduleTaskUseCase(
             }
         }
 
-        // Final normalization: Ensure time is in HH:mm format
+        // Final normalization: Ensure time is in HH:mm format and mathematically valid
         suggestedTime = suggestedTime?.let {
             try {
                 if (it.contains(":")) {
                     val parts = it.split(":")
-                    val hour = parts[0].trim().padStart(2, '0')
-                    val min = parts[1].trim().take(2).padStart(2, '0')
-                    "$hour:$min"
+                    var hour = parts[0].trim().toInt()
+                    var min = parts[1].trim().take(2).toInt()
+                    
+                    // Fix potential AI math errors (like 11:62)
+                    if (min >= 60) {
+                        hour += min / 60
+                        min %= 60
+                    }
+                    hour %= 24
+                    
+                    String.format(java.util.Locale.US, "%02d:%02d", hour, min)
                 } else null
             } catch (e: Exception) { null }
         } ?: run {

@@ -19,6 +19,10 @@ data class SchedulingPreferences(
     val focusShieldEnabled: Boolean = false,
     val voicePersona: String = "Atlas", // Atlas, Lyra, Sloane, Orion
     val smartSpacingEnabled: Boolean = false,
+    val hapticsEnabled: Boolean = true,
+    val notificationsEnabled: Boolean = true,
+    val dynamicColorsEnabled: Boolean = false,
+    val biometricLockEnabled: Boolean = false,
     val hasCompletedOnboarding: Boolean = false,
     val lastSeenVersion: Int = 0,
     val hasAcceptedTerms: Boolean = false,
@@ -37,6 +41,10 @@ class UserPreferencesRepo(private val context: Context) {
         val FOCUS_SHIELD = booleanPreferencesKey("focus_guard")
         val VOICE_PERSONA = stringPreferencesKey("voice_persona")
         val SMART_SPACING = booleanPreferencesKey("dynamic_gap")
+        val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
+        val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        val DYNAMIC_COLORS = booleanPreferencesKey("dynamic_colors")
+        val BIOMETRIC_LOCK = booleanPreferencesKey("biometric_lock")
         val HAS_COMPLETED_ONBOARDING = booleanPreferencesKey("has_completed_onboarding")
         val LAST_SEEN_VERSION = intPreferencesKey("last_seen_version")
         val HAS_ACCEPTED_TERMS = booleanPreferencesKey("has_accepted_terms")
@@ -52,6 +60,10 @@ class UserPreferencesRepo(private val context: Context) {
             focusShieldEnabled = prefs[FOCUS_SHIELD] ?: false,
             voicePersona = prefs[VOICE_PERSONA] ?: "Atlas",
             smartSpacingEnabled = prefs[SMART_SPACING] ?: false,
+            hapticsEnabled = prefs[HAPTICS_ENABLED] ?: true,
+            notificationsEnabled = prefs[NOTIFICATIONS_ENABLED] ?: true,
+            dynamicColorsEnabled = prefs[DYNAMIC_COLORS] ?: false,
+            biometricLockEnabled = prefs[BIOMETRIC_LOCK] ?: false,
             hasCompletedOnboarding = prefs[HAS_COMPLETED_ONBOARDING] ?: false,
             lastSeenVersion = prefs[LAST_SEEN_VERSION] ?: 0,
             hasAcceptedTerms = prefs[HAS_ACCEPTED_TERMS] ?: false,
@@ -94,6 +106,22 @@ class UserPreferencesRepo(private val context: Context) {
 
     suspend fun updateSmartSpacing(enabled: Boolean) {
         dataStore.edit { it[SMART_SPACING] = enabled }
+    }
+
+    suspend fun updateHaptics(enabled: Boolean) {
+        dataStore.edit { it[HAPTICS_ENABLED] = enabled }
+    }
+
+    suspend fun updateNotifications(enabled: Boolean) {
+        dataStore.edit { it[NOTIFICATIONS_ENABLED] = enabled }
+    }
+
+    suspend fun updateDynamicColors(enabled: Boolean) {
+        dataStore.edit { it[DYNAMIC_COLORS] = enabled }
+    }
+
+    suspend fun updateBiometricLock(enabled: Boolean) {
+        dataStore.edit { it[BIOMETRIC_LOCK] = enabled }
     }
 
     suspend fun updateOnboardingStatus(completed: Boolean) {

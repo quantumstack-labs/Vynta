@@ -27,10 +27,12 @@ class HapticManager(private val context: Context) {
         MIC_TRIGGER,      // Double-Tick
         AI_PROCESSING,    // Soft-Pulse
         AI_CRUNCHING,     // Granular "Rain" / "Crunch" effect
-        SUCCESS,          // Success-Pattern
-        ERROR,            // Error-Buzz
+        SUCCESS,          // Heartbeat Success
+        ERROR,            // Staccato Error
+        REFLOW,           // Wave Reflow
         TASK_COMPLETE,    // Confirm-Tick
-        CLICK             // Mechanical Switch
+        CLICK,            // Mechanical Switch
+        THROB             // Continuous throb for loading
     }
 
     /**
@@ -52,32 +54,27 @@ class HapticManager(private val context: Context) {
                 vibrator.vibrate(VibrationEffect.createOneShot(30, (100 * scale).toInt()))
             }
             VyntaEffect.AI_CRUNCHING -> {
-                // Enhanced "Crunching" haptic with robust fallbacks
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     val composition = VibrationEffect.startComposition()
-                    // Use primitives that are more likely to be supported and noticeable
-                    val primitive = if (Random.nextBoolean()) {
-                        VibrationEffect.Composition.PRIMITIVE_TICK
-                    } else {
-                        VibrationEffect.Composition.PRIMITIVE_CLICK
-                    }
-                    composition.addPrimitive(primitive, scale * Random.nextFloat().coerceIn(0.2f, 0.5f))
+                    composition.addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, scale * 0.3f)
                     vibrator.vibrate(composition.compose())
                 } else {
-                    // Fallback for older devices: very sharp, randomized micro-vibrations
-                    val duration = Random.nextLong(5, 12)
-                    val amp = Random.nextInt(40, 100)
-                    vibrator.vibrate(VibrationEffect.createOneShot(duration, (amp * scale).toInt()))
+                    vibrator.vibrate(VibrationEffect.createOneShot(15, (120 * scale).toInt()))
                 }
             }
             VyntaEffect.SUCCESS -> {
-                val timings = longArrayOf(0, 50, 50, 100)
-                val amplitudes = intArrayOf(0, (200 * scale).toInt(), 0, (255 * scale).toInt())
+                val timings = longArrayOf(0, 30, 80, 40)
+                val amplitudes = intArrayOf(0, (150 * scale).toInt(), 0, (255 * scale).toInt())
                 vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
             }
             VyntaEffect.ERROR -> {
-                val timings = longArrayOf(0, 80, 100, 80)
-                val amplitudes = intArrayOf(0, (255 * scale).toInt(), 0, (255 * scale).toInt())
+                val timings = longArrayOf(0, 50, 40, 50, 40, 50)
+                val amplitudes = intArrayOf(0, (255 * scale).toInt(), 0, (255 * scale).toInt(), 0, (255 * scale).toInt())
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
+            }
+            VyntaEffect.REFLOW -> {
+                val timings = longArrayOf(0, 100, 100, 100, 100)
+                val amplitudes = intArrayOf(0, (80 * scale).toInt(), (180 * scale).toInt(), (255 * scale).toInt(), (150 * scale).toInt())
                 vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, -1))
             }
             VyntaEffect.TASK_COMPLETE -> {
@@ -87,11 +84,19 @@ class HapticManager(private val context: Context) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
                 } else {
-                    @Suppress("DEPRECATION")
-                    vibrator.vibrate(10)
+                    vibrator.vibrate(VibrationEffect.createOneShot(10, (150 * scale).toInt()))
                 }
             }
+            VyntaEffect.THROB -> {
+                val timings = longArrayOf(0, 100, 50, 100, 50)
+                val amplitudes = intArrayOf(0, (60 * scale).toInt(), 0, (60 * scale).toInt(), 0)
+                vibrator.vibrate(VibrationEffect.createWaveform(timings, amplitudes, 0)) // Repeat until stopped
+            }
         }
+    }
+
+    fun stop() {
+        vibrator.cancel()
     }
 
     fun performClick(view: View) {

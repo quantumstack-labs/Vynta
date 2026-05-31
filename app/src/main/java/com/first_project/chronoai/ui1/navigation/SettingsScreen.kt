@@ -1,28 +1,24 @@
 package com.first_project.chronoai.ui1.navigation
 
+import android.os.Build
 import android.view.HapticFeedbackConstants
-import com.google.android.gms.auth.api.signin.GoogleSignIn
 import androidx.compose.animation.*
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
@@ -31,15 +27,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.first_project.chronoai.data.CalendarAuthManager
 import com.first_project.chronoai.ui.theme.*
 import com.first_project.chronoai.ui1.viewmodel.ThemeMode
 import com.first_project.chronoai.ui1.viewmodel.ThemeViewModel
-import com.first_project.chronoai.ui1.utils.FocusManager
 import com.first_project.chronoai.voice.VyntaVoiceManager
+import com.first_project.chronoai.data.CalendarRepository
+import com.first_project.chronoai.data.local.db.DatabaseProvider
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.services.calendar.CalendarScopes
+import com.google.api.services.calendar.Calendar
+import com.google.api.client.http.javanet.NetHttpTransport
+import com.google.api.client.json.gson.GsonFactory
+import com.first_project.chronoai.ui1.util.HapticManager
+import androidx.compose.ui.draw.shadow
+import kotlin.math.roundToInt
+import com.first_project.chronoai.data.local.prefs.SchedulingPreferences
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     onSignOut: () -> Unit = {},
@@ -51,364 +59,472 @@ fun SettingsScreen(
     val view = LocalView.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val authManager = remember { CalendarAuthManager(context) }
-    val voiceManager = remember { VyntaVoiceManager(context) }
     
-    val userEmail = remember { GoogleSignIn.getLastSignedInAccount(context)?.email ?: "Not signed in" }
+    val userEmail = remember { com.google.android.gms.auth.api.signin.GoogleSignIn.getLastSignedInAccount(context)?.email ?: "Not signed in" }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
+    val voiceManager = remember { VyntaVoiceManager(context) }
     DisposableEffect(Unit) {
-        onDispose {
-            voiceManager.shutdown()
-        }
+        onDispose { voiceManager.shutdown() }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("Settings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(bottom = 32.dp)
-        ) {
-            item {
-                SettingsSectionHeader("APPEARANCE")
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Theme Mode", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                        Spacer(Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ThemeToggleButton("Light", prefs.themeMode == ThemeMode.LIGHT) { 
-                                themeViewModel.setThemeMode(ThemeMode.LIGHT) 
-                            }
-                            ThemeToggleButton("Dark", prefs.themeMode == ThemeMode.DARK) { 
-                                themeViewModel.setThemeMode(ThemeMode.DARK) 
-                            }
-                            ThemeToggleButton("System", prefs.themeMode == ThemeMode.SYSTEM) { 
-                                themeViewModel.setThemeMode(ThemeMode.SYSTEM) 
-                            }
-                        }
-                    }
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Sign Out") },
+            text = { Text("Are you sure you want to sign out of Vynta?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLogoutDialog = false
+                    onSignOut()
+                }) {
+                    Text("SIGN OUT", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("CANCEL")
+                }
+            }
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AdaptiveMeshGradient()
+
+        Scaffold(
+            containerColor = Color.Transparent
+        ) { padding ->
+            var visibleItems by remember { mutableIntStateOf(0) }
+            LaunchedEffect(Unit) {
+                repeat(8) {
+                    delay(100)
+                    visibleItems++
                 }
             }
 
-            item {
-                SettingsSectionHeader("CHRONOTYPE ARCHITECT")
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Energy Windows", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                                Text("Align tasks with productivity peaks", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Switch(
-                                checked = prefs.energyWindowsEnabled,
-                                onCheckedChange = { 
-                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                    themeViewModel.setEnergyWindows(it) 
-                                },
-                                thumbContent = {
-                                    AnimatedContent(
-                                        targetState = prefs.energyWindowsEnabled,
-                                        transitionSpec = {
-                                            (scaleIn(animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow), initialScale = 0.5f) + fadeIn())
-                                                .togetherWith(scaleOut(targetScale = 0.5f) + fadeOut())
-                                        },
-                                        label = "switch_icon"
-                                    ) { isEnabled ->
-                                        Icon(
-                                            imageVector = if (isEnabled) Icons.Rounded.Check else Icons.Rounded.Close,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(SwitchDefaults.IconSize)
-                                        )
-                                    }
-                                }
-                            )
-                        }
-                        
-                        Spacer(Modifier.height(24.dp))
-                        
-                        Text("Active Hours: ${prefs.workStart.toInt()}:00 - ${prefs.workEnd.toInt()}:00", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(8.dp))
-                        RangeSlider(
-                            value = prefs.workStart..prefs.workEnd,
-                            onValueChange = { range ->
-                                if (range.start.toInt() != prefs.workStart.toInt() || range.endInclusive.toInt() != prefs.workEnd.toInt()) {
-                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                }
-                                themeViewModel.setWorkHours(range.start, range.endInclusive)
-                            },
-                            valueRange = 0f..24f,
-                            steps = 23,
-                            colors = SliderDefaults.colors(
-                                thumbColor = MaterialTheme.colorScheme.primary,
-                                activeTrackColor = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                    }
-                }
-            }
-
-            item {
-                SettingsSectionHeader("INTELLIGENT PARTNER")
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Vocal Essence", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                        Spacer(Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("Atlas", "Lyra", "Sloane", "Orion").forEach { persona ->
-                                FilterChip(
-                                    selected = prefs.voicePersona == persona,
-                                    onClick = { 
-                                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                        themeViewModel.setVoicePersona(persona) 
-                                        
-                                        val phrase = when (persona) {
-                                            "Atlas" -> "I am Atlas. I will ensure your schedule remains balanced and your objectives stay on track. Shall we begin?"
-                                            "Lyra" -> "I'm Lyra. I'll be here to keep your momentum high and your day flowing smoothly. You've got this!"
-                                            "Sloane" -> "This is Sloane. My focus is your efficiency. I’ll keep the briefings concise and your focus sharp."
-                                            "Orion" -> "I am Orion. I've analyzed your upcoming tasks and I'm ready to help you optimize your time today."
-                                            else -> "Hello, I am your Vynta assistant."
-                                        }
-                                        voiceManager.speak(phrase, persona)
-                                    },
-                                    label = { Text(persona) },
-                                    shape = CircleShape
-                                )
-                            }
-                        }
-                        
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Focus Shield", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                                Text("Automatically silences notifications so you can stay in the flow", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Switch(
-                                checked = prefs.focusShieldEnabled,
-                                onCheckedChange = { isChecked -> 
-                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                    if (isChecked) {
-                                        val focusManager = FocusManager(context)
-                                        if (!focusManager.hasDndPermission()) {
-                                            focusManager.requestDndPermission()
-                                        }
-                                    }
-                                    themeViewModel.setFocusShield(isChecked)
-                                },
-                                thumbContent = {
-                                    AnimatedContent(
-                                        targetState = prefs.focusShieldEnabled,
-                                        transitionSpec = {
-                                            (scaleIn(animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow), initialScale = 0.5f) + fadeIn())
-                                                .togetherWith(scaleOut(targetScale = 0.5f) + fadeOut())
-                                        },
-                                        label = "switch_icon"
-                                    ) { isEnabled ->
-                                        Icon(
-                                            imageVector = if (isEnabled) Icons.Rounded.Check else Icons.Rounded.Close,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(SwitchDefaults.IconSize)
-                                        )
-                                    }
-                                }
-                            )
-                        }
-                        
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Smart Spacing", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                                Text("Intelligently adds breathing room between tasks to prevent burnout", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Switch(
-                                checked = prefs.smartSpacingEnabled,
-                                onCheckedChange = { 
-                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                    themeViewModel.setSmartSpacing(it) 
-                                },
-                                thumbContent = {
-                                    AnimatedContent(
-                                        targetState = prefs.smartSpacingEnabled,
-                                        transitionSpec = {
-                                            (scaleIn(animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow), initialScale = 0.5f) + fadeIn())
-                                                .togetherWith(scaleOut(targetScale = 0.5f) + fadeOut())
-                                        },
-                                        label = "switch_icon"
-                                    ) { isEnabled ->
-                                        Icon(
-                                            imageVector = if (isEnabled) Icons.Rounded.Check else Icons.Rounded.Close,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(SwitchDefaults.IconSize)
-                                        )
-                                    }
-                                }
-                            )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 140.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                item {
+                    AnimatedVisibility(visible = visibleItems > 0, enter = fadeIn() + slideInVertically { 20 }) {
+                        Column {
+                            Text("Settings", style = VyntaTypography.displayLarge)
+                            Text("CURATE YOUR TEMPORAL EXPERIENCE", style = VyntaTypography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
-            }
 
-            item {
-                SettingsSectionHeader("ACCOUNT")
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
-                                contentAlignment = Alignment.Center
+                item {
+                    AnimatedVisibility(visible = visibleItems > 1, enter = fadeIn() + slideInVertically { 20 }) {
+                        Column {
+                            SettingsSectionHeader("APPEARANCE")
+                            VyntaCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                             ) {
-                                Icon(
-                                    Icons.Default.CloudQueue,
-                                    null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                // Live Connection Pulse
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .align(Alignment.TopEnd)
-                                        .background(Color(0xFF81C784), CircleShape)
-                                        .border(2.dp, MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                                )
-                            }
-                            Spacer(Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Google Calendar", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                Text(userEmail, style = MaterialTheme.typography.labelSmall, color = Color(0xFF81C784))
+                                Column(modifier = Modifier.padding(24.dp)) {
+                                    Text("Theme Mode", style = VyntaTypography.titleMedium)
+                                    Spacer(Modifier.height(20.dp))
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        listOf(ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.SYSTEM).forEach { mode ->
+                                            ThemeButton(
+                                                label = mode.name,
+                                                isSelected = prefs.themeMode == mode,
+                                                icon = when(mode) {
+                                                    ThemeMode.LIGHT -> Icons.Default.WbSunny
+                                                    ThemeMode.DARK -> Icons.Default.DarkMode
+                                                    ThemeMode.SYSTEM -> Icons.Default.Dns
+                                                },
+                                                onClick = { 
+                                                    if (prefs.hapticsEnabled) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                                    themeViewModel.setThemeMode(mode) 
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
-                        
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                        
-                        TextButton(
-                            onClick = {
-                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                showLogoutDialog = true
+                    }
+                }
+
+                item {
+                    AnimatedVisibility(visible = visibleItems > 2, enter = fadeIn() + slideInVertically { 20 }) {
+                        Column {
+                            SettingsSectionHeader("CHRONOTYPE ARCHITECT")
+                            VyntaCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            ) {
+                                Column(modifier = Modifier.padding(24.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("Energy Windows", style = VyntaTypography.titleMedium, modifier = Modifier.weight(1f))
+                                        Icon(Icons.Default.ElectricBolt, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(24.dp))
+                                    }
+                                    Text("Calibrate AI to your biological peaks.", style = VyntaTypography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    
+                                    Spacer(Modifier.height(24.dp))
+                                    
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Column {
+                                            Text("${prefs.workStart.roundToInt()}:00", style = VyntaTypography.labelSmall)
+                                        }
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            val duration = prefs.workEnd - prefs.workStart
+                                            val label = when {
+                                                duration < 6 -> "HYPER-FOCUS"
+                                                duration > 14 -> "LONG-RUN"
+                                                else -> "BALANCED"
+                                            }
+                                            Text(label, style = VyntaTypography.labelSmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                        }
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text("${prefs.workEnd.roundToInt()}:00", style = VyntaTypography.labelSmall)
+                                        }
+                                    }
+                                    Spacer(Modifier.height(16.dp))
+                                    VyntaVelocitySlider(
+                                        value = prefs.workStart..prefs.workEnd,
+                                        onValueChange = { range ->
+                                            themeViewModel.setWorkHours(range.start, range.endInclusive)
+                                        }
+                                    )
+                                    
+                                    Spacer(Modifier.height(24.dp))
+                                    val impactDescription = remember(prefs.workStart, prefs.workEnd) {
+                                        val duration = prefs.workEnd - prefs.workStart
+                                        when {
+                                            duration < 6 -> "NEURAL IMPACT: AI will strictly prioritize high-impact missions in this short window."
+                                            duration > 14 -> "NEURAL IMPACT: AI will space missions generously to optimize for long-term endurance."
+                                            else -> "NEURAL IMPACT: AI will follow your natural circadian rhythms for a balanced flow."
+                                        }
+                                    }
+                                    Text(impactDescription, style = VyntaTypography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    AnimatedVisibility(visible = visibleItems > 3, enter = fadeIn() + slideInVertically { 20 }) {
+                        Column {
+                            SettingsSectionHeader("INTELLIGENT PARTNER")
+                            VyntaCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            ) {
+                                Column(modifier = Modifier.padding(24.dp)) {
+                                    Text("Neural Voice Persona", style = VyntaTypography.titleMedium)
+                                    Spacer(Modifier.height(16.dp))
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        listOf("Atlas", "Lyra", "Sloane", "Orion").forEach { persona ->
+                                            FilterChip(
+                                                selected = prefs.voicePersona == persona,
+                                                onClick = { 
+                                                    themeViewModel.setVoicePersona(persona)
+                                                    val sampleText = when(persona) {
+                                                        "Atlas" -> "Duty and discipline are the foundations of your day."
+                                                        "Lyra" -> "Let's go! Time to crush your goals and win the day!"
+                                                        "Sloane" -> "Optimizing your temporal flow for maximum efficiency."
+                                                        "Orion" -> "Find harmony in your schedule, and the day will follow your rhythm."
+                                                        else -> "Hello, I am Vynta."
+                                                    }
+                                                    voiceManager.speak(sampleText, persona)
+                                                },
+                                                label = { Text(persona) },
+                                                shape = ShapePill
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(Modifier.height(24.dp))
+                                    
+                                    SettingsToggle(
+                                        title = "Focus Guard",
+                                        subtitle = "Block intrusive pings.",
+                                        checked = prefs.focusShieldEnabled,
+                                        onCheckedChange = { 
+                                            if (it) HapticManager.playToggleOn(view) else HapticManager.playToggleOff(view)
+                                            themeViewModel.setFocusShield(it) 
+                                        }
+                                    )
+                                    
+                                    Spacer(Modifier.height(16.dp))
+                                    
+                                    SettingsToggle(
+                                        title = "Dynamic Gap Logic",
+                                        subtitle = "Auto-buffer transitions.",
+                                        checked = prefs.smartSpacingEnabled,
+                                        onCheckedChange = { 
+                                            if (it) HapticManager.playToggleOn(view) else HapticManager.playToggleOff(view)
+                                            themeViewModel.setSmartSpacing(it) 
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    AnimatedVisibility(visible = visibleItems > 4, enter = fadeIn() + slideInVertically { 20 }) {
+                        Column {
+                            SettingsSectionHeader("SYSTEM")
+                            VyntaCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            ) {
+                                Column(modifier = Modifier.padding(24.dp)) {
+                                    SettingsToggle(
+                                        title = "Haptic Feedback",
+                                        subtitle = "Tactile response for interactions.",
+                                        checked = prefs.hapticsEnabled,
+                                        onCheckedChange = { 
+                                            // Always play toggle haptic if possible for this specific toggle
+                                            if (it) {
+                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                                                    view.performHapticFeedback(HapticFeedbackConstants.TOGGLE_ON)
+                                                } else {
+                                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                                }
+                                            } else {
+                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                                                    view.performHapticFeedback(HapticFeedbackConstants.TOGGLE_OFF)
+                                                } else {
+                                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                                }
+                                            }
+                                            themeViewModel.setHapticsEnabled(it) 
+                                        }
+                                    )
+                                    
+                                    Spacer(Modifier.height(16.dp))
+                                    
+                                    SettingsToggle(
+                                        title = "Neural Link",
+                                        subtitle = "Receive AI-driven notifications.",
+                                        checked = prefs.notificationsEnabled,
+                                        onCheckedChange = { 
+                                            if (it) HapticManager.playToggleOn(view) else HapticManager.playToggleOff(view)
+                                            themeViewModel.setNotificationsEnabled(it) 
+                                        }
+                                    )
+
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                        Spacer(Modifier.height(16.dp))
+                                        SettingsToggle(
+                                            title = "Dynamic Colors",
+                                            subtitle = "Material You system theme.",
+                                            checked = prefs.dynamicColorsEnabled,
+                                            onCheckedChange = { 
+                                                if (it) HapticManager.playToggleOn(view) else HapticManager.playToggleOff(view)
+                                                themeViewModel.setDynamicColors(it) 
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    AnimatedVisibility(visible = visibleItems > 5, enter = fadeIn() + slideInVertically { 20 }) {
+                        Column {
+                            SettingsSectionHeader("SECURITY")
+                            VyntaCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            ) {
+                                Column(modifier = Modifier.padding(24.dp)) {
+                                    SettingsToggle(
+                                        title = "Biometric Lock",
+                                        subtitle = "Secure your temporal data.",
+                                        checked = prefs.biometricLockEnabled,
+                                        onCheckedChange = { 
+                                            if (it) HapticManager.playToggleOn(view) else HapticManager.playToggleOff(view)
+                                            themeViewModel.setBiometricLock(it) 
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    AnimatedVisibility(visible = visibleItems > 6, enter = fadeIn() + slideInVertically { 20 }) {
+                        Column {
+                            SettingsSectionHeader("INFORMATION")
+                            VyntaCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                showBorder = true
+                            ) {
+                                Column(modifier = Modifier.padding(24.dp)) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(VyntaShapes.medium)
+                                            .clickable { 
+                                                if (prefs.hapticsEnabled) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                                onNavigateToAbout() 
+                                            }
+                                            .padding(vertical = 12.dp, horizontal = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(Modifier.width(16.dp))
+                                        Text("About Vynta", style = VyntaTypography.titleMedium)
+                                        Spacer(Modifier.weight(1f))
+                                        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 4.dp))
+                                    
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(VyntaShapes.medium)
+                                            .clickable { 
+                                                if (prefs.hapticsEnabled) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                                onNavigateToManual() 
+                                            }
+                                            .padding(vertical = 12.dp, horizontal = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.MenuBook, null, tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(Modifier.width(16.dp))
+                                        Text("User Manual", style = VyntaTypography.titleMedium)
+                                        Spacer(Modifier.weight(1f))
+                                        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    AnimatedVisibility(visible = visibleItems > 7, enter = fadeIn() + slideInVertically { 20 }) {
+                        Button(
+                            onClick = { 
+                                if (prefs.hapticsEnabled) view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                showLogoutDialog = true 
                             },
-                            contentPadding = PaddingValues(0.dp)
+                            modifier = Modifier.fillMaxWidth().height(64.dp),
+                            shape = ShapePill,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Logout, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                Icon(Icons.AutoMirrored.Filled.Logout, null)
                                 Spacer(Modifier.width(12.dp))
-                                Text("Do you want to Log out? 🥺", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                Text("Sign Out of Vynta Ecosystem", style = VyntaTypography.titleMedium)
                             }
                         }
                     }
                 }
-            }
-
-            item {
-                SettingsSectionHeader("MANUAL")
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        onNavigateToManual()
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.MenuBook, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(16.dp))
-                        Column {
-                            Text("How Vynta Works", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Guide to your AI partner", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Spacer(Modifier.weight(1f))
-                        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-
-            item {
-                SettingsSectionHeader("ABOUT")
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        onNavigateToAbout()
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(16.dp))
-                        Column {
-                            Text("About the Developer", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                            Text("The vision behind Vynta", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Spacer(Modifier.weight(1f))
-                        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-
-            item {
-                Spacer(Modifier.height(32.dp))
+                
+                item { Spacer(Modifier.height(140.dp)) }
             }
         }
+    }
+}
 
-        if (showLogoutDialog) {
-            AlertDialog(
-                onDismissRequest = { showLogoutDialog = false },
-                icon = { Icon(Icons.Default.SentimentVeryDissatisfied, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.error) },
-                title = { Text("Are you sure? Really? 🥺", fontWeight = FontWeight.Black) },
-                text = { Text("You'll definitely miss me. We're a great team, aren't we?", textAlign = TextAlign.Center) },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showLogoutDialog = false
-                            scope.launch {
-                                authManager.signOut()
-                                onSignOut()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("Yes, Log out")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showLogoutDialog = false }) {
-                        Text("No, Stay with me")
-                    }
-                }
-            )
+@Composable
+fun SettingsToggle(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = VyntaTypography.titleMedium)
+            Text(subtitle, style = VyntaTypography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        VyntaSwitch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+fun VyntaSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
+) {
+    val transition = updateTransition(targetState = checked, label = "SwitchTransition")
+    
+    val thumbOffset by transition.animateDp(
+        transitionSpec = { spring(stiffness = Spring.StiffnessLow, dampingRatio = Spring.DampingRatioMediumBouncy) },
+        label = "ThumbOffset"
+    ) { if (it) 24.dp else 0.dp }
+
+    val trackColor by transition.animateColor(label = "TrackColor") {
+        if (it) MaterialTheme.colorScheme.primary.copy(alpha = 0.8f) 
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    }
+    
+    val thumbColor by transition.animateColor(label = "ThumbColor") {
+        if (it) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.outline
+    }
+
+    val glowColor = MaterialTheme.colorScheme.primary.copy(alpha = if (checked) 0.5f else 0f)
+    
+    Box(
+        modifier = Modifier
+            .size(width = 52.dp, height = 28.dp)
+            .clip(CircleShape)
+            .background(trackColor)
+            .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape)
+            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .padding(4.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(20.dp)
+                .shadow(elevation = if (checked) 8.dp else 0.dp, shape = CircleShape, ambientColor = glowColor, spotColor = glowColor)
+                .clip(CircleShape)
+                .background(thumbColor)
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+fun SettingsScreenPreview() {
+    VyntaTheme {
+        // We cannot easily preview the full SettingsScreen because of the ViewModel dependency
+        // In a real scenario, we'd use a stateless version of the screen
+        Text("Settings Screen Preview (ViewModel dependency)", modifier = Modifier.padding(24.dp))
+    }
+}
+
+@Composable
+fun ThemeButton(label: String, isSelected: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.05f else 1.0f,
+        animationSpec = spring(stiffness = Spring.StiffnessLow, dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "scale"
+    )
+
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(100.dp).scale(scale),
+        shape = CircleShape,
+        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Icon(icon, null)
+            Spacer(Modifier.height(8.dp))
+            Text(label, style = VyntaTypography.labelSmall)
         }
     }
 }
@@ -417,28 +533,8 @@ fun SettingsScreen(
 fun SettingsSectionHeader(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.labelLarge,
+        style = VyntaTypography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 28.dp, bottom = 12.dp),
-        letterSpacing = 1.5.sp
+        modifier = Modifier.padding(bottom = 12.dp)
     )
-}
-
-@Composable
-fun ThemeToggleButton(text: String, isSelected: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-        border = if (isSelected) null else ButtonDefaults.outlinedButtonBorder,
-        modifier = Modifier.height(40.dp)
-    ) {
-        Box(modifier = Modifier.padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
-            Text(
-                text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
 }

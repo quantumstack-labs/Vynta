@@ -12,6 +12,7 @@ import com.first_project.chronoai.data.local.prefs.SchedulingPreferences
 import com.first_project.chronoai.data.local.prefs.UserPreferencesRepo
 import com.first_project.chronoai.domain.ScheduleTaskUseCase
 import com.first_project.chronoai.domain.SchedulingResult
+import com.first_project.chronoai.notification.PrecisionTriggerManager
 import com.first_project.chronoai.ui1.utils.HapticManager
 import com.first_project.chronoai.ui1.viewmodel.HomeViewModel
 import kotlinx.coroutines.Job
@@ -22,7 +23,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 sealed class InputUiState {
     object Idle : InputUiState()
@@ -40,6 +40,7 @@ data class DetectedContext(
     val title: String = "",
     val deadlineDate: String? = null,
     val deadlineTime: String? = null,
+    val durationMinutes: Int = 60,
     val priority: Int = 3,
     val energyLevel: String = "Medium",
     val subtasks: List<String> = emptyList(),
@@ -53,6 +54,10 @@ class InputViewModel(
     private val scheduleTaskUseCase: ScheduleTaskUseCase,
     private val userPreferencesRepo: UserPreferencesRepo
 ) : ViewModel() {
+
+    fun speak(text: String) {
+        homeViewModel.speak(text)
+    }
 
     private val _uiState = MutableStateFlow<InputUiState>(InputUiState.Idle)
     val uiState: StateFlow<InputUiState> = _uiState.asStateFlow()
@@ -71,6 +76,7 @@ class InputViewModel(
     private var analysisJob: Job? = null
 
     fun loadTaskForEditing(context: Context, taskId: Int) {
+        resetState()
         editingTaskId = taskId
         viewModelScope.launch {
             val task = DatabaseProvider.getDatabase(context).taskDao().getTaskById(taskId)
@@ -81,6 +87,7 @@ class InputViewModel(
                     title = it.title,
                     deadlineDate = date,
                     deadlineTime = time,
+                    durationMinutes = it.durationMinutes ?: 60,
                     priority = it.priority,
                     energyLevel = it.energyLevel ?: "Medium",
                     subtasks = it.subtasks,
@@ -91,21 +98,27 @@ class InputViewModel(
         }
     }
 
-    fun onTextChanged(input: String) {
+    fun onTextChanged(input: String, context: Context? = null) {
         // Debounce AI background processing to update intelligent defaults
         analysisJob?.cancel()
         if (input.length < 5) return
 
         analysisJob = viewModelScope.launch {
-            delay(800) // Wait for user to stop typing
+            delay(1200) // Increased debounce to 1.2s to prevent rate limit spam
             try {
+                context?.let { com.first_project.chronoai.ui1.utils.HapticManager(it).play(com.first_project.chronoai.ui1.utils.HapticManager.VyntaEffect.AI_CRUNCHING) }
                 val resultJson = aiManager.analyzeTask(input)
+                
+                // If we hit a rate limit, don't show an error for background analysis, just skip it.
+                if (resultJson.contains("Neural Core is busy")) return@launch
+
                 val taskModel = ResponseParser.parse(resultJson, input)
                 
                 _detectedContext.value = DetectedContext(
                     title = taskModel.title,
                     deadlineDate = taskModel.deadlineDate,
                     deadlineTime = taskModel.deadlineTime,
+                    durationMinutes = taskModel.durationMinutes,
                     priority = taskModel.priority,
                     energyLevel = taskModel.energyLevel,
                     subtasks = taskModel.proposedSubtasks,
@@ -125,6 +138,7 @@ class InputViewModel(
         subtasksOverride: List<String>? = null,
         dateOverride: String? = null,
         timeOverride: String? = null,
+        durationOverride: Int? = null,
         recurrenceOverride: Boolean? = null,
         rruleOverride: String? = null,
         skipAiReanalysis: Boolean = false,
@@ -145,7 +159,7 @@ class InputViewModel(
                     // Create a direct model from inputs if skipping AI
                     TaskModel(
                         title = _detectedContext.value.title.ifBlank { input },
-                        durationMinutes = 60,
+                        durationMinutes = durationOverride ?: _detectedContext.value.durationMinutes,
                         priority = _detectedContext.value.priority,
                         isRecurring = recurrenceOverride ?: _detectedContext.value.isRecurring,
                         recurrencePattern = rruleOverride ?: _detectedContext.value.recurrencePattern,
@@ -170,7 +184,7 @@ class InputViewModel(
                     } catch (e: Exception) {
                         TaskModel(
                             title = input,
-                            durationMinutes = 60,
+                            durationMinutes = durationOverride ?: _detectedContext.value.durationMinutes,
                             priority = 3,
                             isRecurring = recurrenceOverride ?: _detectedContext.value.isRecurring,
                             recurrencePattern = rruleOverride ?: _detectedContext.value.recurrencePattern,
@@ -192,6 +206,7 @@ class InputViewModel(
                 val finalTime = if (timeOverride == "OPTIMAL") null else (timeOverride ?: taskModel.deadlineTime)
                 
                 taskModel = taskModel.copy(
+                    durationMinutes = durationOverride ?: taskModel.durationMinutes,
                     energyLevel = energyOverride ?: taskModel.energyLevel,
                     proposedSubtasks = subtasksOverride ?: taskModel.proposedSubtasks,
                     deadlineDate = dateOverride ?: taskModel.deadlineDate,
@@ -207,9 +222,10 @@ class InputViewModel(
                     is SchedulingResult.Success -> {
                         // Create task entity for DB
                         val taskEntity = TaskEntity(
-                            id = editingTaskId ?: UUID.randomUUID().hashCode(),
+                            id = editingTaskId ?: 0, // Use 0 for new tasks to let Room auto-generate
                             title = taskModel.title,
                             deadline = "${taskModel.deadlineDate ?: ""} ${taskModel.deadlineTime ?: ""}".trim(),
+                            durationMinutes = taskModel.durationMinutes,
                             priority = taskModel.priority,
                             energyLevel = taskModel.energyLevel,
                             status = "SCHEDULED",
@@ -225,7 +241,8 @@ class InputViewModel(
                         if (editingTaskId != null) {
                             dao.updateTask(taskEntity)
                         } else {
-                            dao.insertTask(taskEntity)
+                            val newId = dao.insertTask(taskEntity).toInt()
+                            PrecisionTriggerManager.scheduleTaskTrigger(context, taskEntity.copy(id = newId))
                         }
                         
                         // Notify widget of the new task
@@ -264,5 +281,11 @@ class InputViewModel(
         _uiState.value = InputUiState.Idle
         _detectedContext.value = DetectedContext()
         editingTaskId = null
+    }
+
+    fun clearSuccessState() {
+        if (_uiState.value is InputUiState.Success) {
+            _uiState.value = InputUiState.Idle
+        }
     }
 }

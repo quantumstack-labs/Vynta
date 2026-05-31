@@ -27,4 +27,17 @@
             <extra android:name="shortcut" android:value="history" />
         </intent>
     </shortcut>
+    <shortcut
+        android:shortcutId="daily_brief"
+        android:enabled="true"
+        android:icon="@drawable/ic_history_shortcut"
+        android:shortcutShortLabel="@string/shortcut_daily_brief"
+        android:shortcutLongLabel="@string/shortcut_daily_brief_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.first_project.chronoai"
+            android:targetClass="com.first_project.chronoai.MainActivity">
+            <extra android:name="shortcut" android:value="daily_brief" />
+        </intent>
+    </shortcut>
 </shortcuts>

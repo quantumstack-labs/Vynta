@@ -10,6 +10,8 @@ import android.view.View
 
 object HapticManager {
     
+    var hapticsEnabled: Boolean = true
+
     private fun getVibrator(context: Context): Vibrator {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -21,22 +23,27 @@ object HapticManager {
     }
 
     fun playClick(view: View) {
+        if (!hapticsEnabled) return
         view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
     }
     
     fun playConfirm(view: View) {
+        if (!hapticsEnabled) return
         view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
     }
     
     fun playReject(view: View) {
+        if (!hapticsEnabled) return
         view.performHapticFeedback(HapticFeedbackConstants.REJECT)
     }
 
     fun playLongPress(view: View) {
+        if (!hapticsEnabled) return
         view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
     }
 
     fun playToggleOn(view: View) {
+        if (!hapticsEnabled) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             view.performHapticFeedback(HapticFeedbackConstants.TOGGLE_ON)
         } else {
@@ -45,6 +52,7 @@ object HapticManager {
     }
 
     fun playToggleOff(view: View) {
+        if (!hapticsEnabled) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             view.performHapticFeedback(HapticFeedbackConstants.TOGGLE_OFF)
         } else {
@@ -53,6 +61,7 @@ object HapticManager {
     }
 
     fun playSwipeDelete(view: View) {
+        if (!hapticsEnabled) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             view.performHapticFeedback(HapticFeedbackConstants.GESTURE_END)
         } else {
@@ -61,6 +70,7 @@ object HapticManager {
     }
 
     fun playTabSwitch(view: View) {
+        if (!hapticsEnabled) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             view.performHapticFeedback(HapticFeedbackConstants.SEGMENT_FREQUENT_TICK)
         } else {
@@ -69,6 +79,7 @@ object HapticManager {
     }
 
     fun playSelection(view: View) {
+        if (!hapticsEnabled) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             view.performHapticFeedback(HapticFeedbackConstants.SEGMENT_TICK)
         } else {
@@ -77,6 +88,7 @@ object HapticManager {
     }
 
     fun playVoiceStart(context: Context) {
+        if (!hapticsEnabled) return
         val vibrator = getVibrator(context)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val timings = longArrayOf(0, 10, 40, 10)
@@ -89,6 +101,7 @@ object HapticManager {
     }
 
     fun playVoiceStop(context: Context) {
+        if (!hapticsEnabled) return
         val vibrator = getVibrator(context)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createOneShot(60, VibrationEffect.DEFAULT_AMPLITUDE))
@@ -99,6 +112,7 @@ object HapticManager {
     }
 
     fun playAIThinking(context: Context) {
+        if (!hapticsEnabled) return
         val vibrator = getVibrator(context)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createOneShot(30, 50))
@@ -109,6 +123,7 @@ object HapticManager {
     }
 
     fun playSuccess(context: Context) {
+        if (!hapticsEnabled) return
         val vibrator = getVibrator(context)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val timings = longArrayOf(0, 20, 40, 30)
@@ -121,6 +136,7 @@ object HapticManager {
     }
 
     fun playError(context: Context) {
+        if (!hapticsEnabled) return
         val vibrator = getVibrator(context)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val timings = longArrayOf(0, 50, 50, 50)

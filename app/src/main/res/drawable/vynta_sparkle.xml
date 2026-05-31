@@ -1,0 +1,22 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Outer Glow Aura -->
+    <path
+        android:fillColor="#332563EB"
+        android:pathData="M24,4 C24,4 22,20 4,24 C22,28 24,44 24,44 C24,44 26,28 44,24 C26,20 24,4 24,4 Z" />
+    <!-- Detailed 8-Pointed Neural Sparkle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,8 L26,22 L40,24 L26,26 L24,40 L22,26 L8,24 L22,22 Z" />
+    <!-- Diagonal Inner Rays -->
+    <path
+        android:fillColor="#E0E7FF"
+        android:pathData="M24,18 L26,22 L30,24 L26,26 L24,30 L22,26 L18,24 L22,22 Z" />
+    <!-- Center Neural Singularity (Pink Highlight) -->
+    <path
+        android:fillColor="#F472B6"
+        android:pathData="M24,24m-2,0a2,2 0 1,1 4,0a2,2 0 1,1 -4,0" />
+</vector>

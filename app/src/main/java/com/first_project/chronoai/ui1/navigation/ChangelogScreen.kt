@@ -30,40 +30,34 @@ data class ChangelogItem(
 fun ChangelogScreen(onDismiss: () -> Unit) {
     val updates = listOf(
         ChangelogItem(
-            "Focus Shield (DND)",
-            "Automatically enables DND during high-energy tasks to keep you in the zone.",
-            Icons.Default.Security,
+            "Temporal Alignment",
+            "Experience an immersive new login animation that visualizes your day coming together.",
+            Icons.Default.Timeline,
+            Color(0xFFD0BCFF)
+        ),
+        ChangelogItem(
+            "Actionable Insights",
+            "Daily briefings now provide grounded, human-centric strategic observations and recommendations.",
+            Icons.Default.AutoGraph,
+            Color(0xFFC8B99A)
+        ),
+        ChangelogItem(
+            "Material 3 Widgets",
+            "Widgets now follow your system's dynamic colors and Light/Dark themes perfectly.",
+            Icons.Default.Palette,
+            Color(0xFFB4F0AD)
+        ),
+        ChangelogItem(
+            "Reliable Biometric Lock",
+            "Fixed lock screen behavior to strictly respect your settings and ensure a smooth startup.",
+            Icons.Default.Fingerprint,
             Color(0xFFE91E63)
         ),
         ChangelogItem(
-            "Smart Spacing",
-            "Auto-schedules 'breathing space' between tasks based on your energy levels.",
-            Icons.Default.SpaceBar,
-            Color(0xFF2196F3)
-        ),
-        ChangelogItem(
-            "Task Redemption",
-            "Forgot a task yesterday? Vynta now offers to move them to today instantly.",
-            Icons.Default.Autorenew,
+            "Real-time Intelligence",
+            "Briefings and insights now update instantly as you add or complete your missions.",
+            Icons.Default.Bolt,
             Color(0xFFFF9800)
-        ),
-        ChangelogItem(
-            "Voice Personas",
-            "Choose your guide: Atlas, Lyra, Sloane, or Orion, each with a unique personality.",
-            Icons.Default.RecordVoiceOver,
-            Color(0xFF6750A4)
-        ),
-        ChangelogItem(
-            "Dynamic Widgets",
-            "New home screen widgets with upcoming tasks and motivational quotes.",
-            Icons.Default.Widgets,
-            Color(0xFF4CAF50)
-        ),
-        ChangelogItem(
-            "Smart Scheduling",
-            "Recurring tasks, manual time selection, and AI-driven energy adjustments.",
-            Icons.Default.AutoAwesome,
-            Color(0xFF00BCD4)
         )
     )
 
@@ -94,7 +88,7 @@ fun ChangelogScreen(onDismiss: () -> Unit) {
             )
             
             Text(
-                "Version 2.0",
+                "Version 3.1.0",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold

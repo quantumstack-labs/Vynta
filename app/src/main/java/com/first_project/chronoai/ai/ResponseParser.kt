@@ -118,8 +118,9 @@ object ResponseParser {
         val dateRegex = Pattern.compile("@Date:\\s*([^|@]+)")
         val timeRegex = Pattern.compile("@Time:\\s*([^|@]+)")
         val priorityRegex = Pattern.compile("@Priority:\\s*([^|@]+)")
-        val durationRegex = Pattern.compile("@Duration:\\s*([^|@]+)")
+        val durationOverrideRegex = Pattern.compile("@Duration:\\s*([^|@]+)")
 
+        // 1. Explicit Overrides (@Key: Value)
         dateRegex.matcher(input).takeIf { it.find() }?.let { updated = updated.copy(deadlineDate = it.group(1).trim(), hasDeadline = true) }
         timeRegex.matcher(input).takeIf { it.find() }?.let { updated = updated.copy(deadlineTime = it.group(1).trim()) }
         
@@ -134,11 +135,71 @@ object ResponseParser {
             updated = updated.copy(priority = pInt)
         }
 
-        durationRegex.matcher(input).takeIf { it.find() }?.let {
+        durationOverrideRegex.matcher(input).takeIf { it.find() }?.let {
             val dInt = it.group(1).trim().filter { c -> c.isDigit() }.toIntOrNull() ?: updated.durationMinutes
             updated = updated.copy(durationMinutes = dInt)
         }
 
+        // 2. Natural Language Fallbacks
+        // Match "X hours", "X h", "X mins", "X minutes"
+        val hourPattern = Pattern.compile("(\\d+)\\s*(hours?|h)\\b", Pattern.CASE_INSENSITIVE)
+        val minPattern = Pattern.compile("(\\d+)\\s*(minutes?|mins?|m)\\b", Pattern.CASE_INSENSITIVE)
+        
+        val hMatcher = hourPattern.matcher(input)
+        if (hMatcher.find()) {
+            updated = updated.copy(durationMinutes = hMatcher.group(1).toInt() * 60)
+        } else {
+            val mMatcher = minPattern.matcher(input)
+            if (mMatcher.find()) {
+                updated = updated.copy(durationMinutes = mMatcher.group(1).toInt())
+            }
+        }
+
+        // 3. Time Range Fallback (from X to Y)
+        val rangePattern = Pattern.compile("from\\s+(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)\\s+to\\s+(\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)?)", Pattern.CASE_INSENSITIVE)
+        val rMatcher = rangePattern.matcher(input)
+        if (rMatcher.find()) {
+            val startTimeStr = rMatcher.group(1)
+            val endTimeStr = rMatcher.group(2)
+            
+            if (startTimeStr != null && endTimeStr != null) {
+                val startMinutes = parseTimeToMinutes(startTimeStr)
+                val endMinutes = parseTimeToMinutes(endTimeStr)
+                
+                if (startMinutes != null && endMinutes != null) {
+                    var diff = endMinutes - startMinutes
+                    if (diff < 0) diff += 24 * 60 // Handle overnight range if applicable
+                    
+                    if (diff > 0) {
+                        updated = updated.copy(
+                            deadlineTime = java.util.Locale.US.let { String.format(it, "%02d:%02d", startMinutes / 60, startMinutes % 60) },
+                            durationMinutes = diff
+                        )
+                    }
+                }
+            }
+        }
+
         return updated
+    }
+
+    private fun parseTimeToMinutes(timeStr: String): Int? {
+        try {
+            val clean = timeStr.lowercase().trim()
+            val isPm = clean.contains("pm")
+            val isAm = clean.contains("am")
+            val digits = clean.replace(Regex("[^0-9:]"), "")
+            
+            val parts = digits.split(":")
+            var hour = parts[0].toInt()
+            val min = if (parts.size > 1) parts[1].toInt() else 0
+            
+            if (isPm && hour < 12) hour += 12
+            if (isAm && hour == 12) hour = 0
+            
+            return hour * 60 + min
+        } catch (e: Exception) {
+            return null
+        }
     }
 }

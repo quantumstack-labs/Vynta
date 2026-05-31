@@ -1,10 +1,14 @@
 package com.first_project.chronoai.worker
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.work.*
 import com.first_project.chronoai.data.CalendarRepository
+import com.first_project.chronoai.data.local.db.DatabaseProvider
 import com.first_project.chronoai.data.local.prefs.UserPreferencesRepo
+import com.first_project.chronoai.notification.LiveNotificationManager
+import com.first_project.chronoai.notification.LiveTaskService
 import com.first_project.chronoai.ui1.utils.FocusManager
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -24,18 +28,17 @@ class FocusShieldWorker(
     override suspend fun doWork(): Result {
         val prefsRepo = UserPreferencesRepo(applicationContext)
         val prefs = prefsRepo.schedulingPreferences.first()
-
-        if (!prefs.focusShieldEnabled) {
-            FocusManager(applicationContext).setFocusMode(false)
-            return Result.success()
-        }
+        val focusManager = FocusManager(applicationContext)
 
         val account = GoogleSignIn.getLastSignedInAccount(applicationContext)
         if (account == null) return Result.failure()
 
         val credential = GoogleAccountCredential.usingOAuth2(
             applicationContext,
-            listOf(CalendarScopes.CALENDAR_READONLY)
+            listOf(
+                CalendarScopes.CALENDAR,
+                CalendarScopes.CALENDAR_READONLY
+            )
         ).setSelectedAccount(account.account)
 
         val service = Calendar.Builder(
@@ -44,43 +47,62 @@ class FocusShieldWorker(
             credential
         ).setApplicationName("ChronoAI").build()
 
-        val calendarRepository = CalendarRepository(service)
+        val calendarRepository = CalendarRepository(service, applicationContext)
         val now = System.currentTimeMillis()
         
         // Fetch events for today
         val events = calendarRepository.getEventsForDate(LocalDate.now())
+        Log.d("FocusShieldWorker", "Fetched ${events.size} events for today")
         
         // A task is "active" if NOW is between its start and end time
         val activeEvent = events.find { event ->
             val start = event.start.dateTime?.value ?: event.start.date?.value ?: 0L
             val end = event.end.dateTime?.value ?: event.end.date?.value ?: 0L
-            
-            val description = event.description ?: ""
-            
-            // 1. Check for Energy Tag
-            val hasHighEnergyTag = description.contains("Energy: High", ignoreCase = true)
-            
-            // 2. Check for Priority Tag (e.g., Priority: 1, 2, or 5)
-            val hasHighPriorityTag = description.contains("Priority: 1", ignoreCase = true) || 
-                                    description.contains("Priority: 2", ignoreCase = true) || 
-                                    description.contains("Priority: 5", ignoreCase = true)
-            
-            // 3. Check title for high-energy keywords
-            val titleKeywords = listOf("focus", "deep work", "coding", "development", "critical", "study")
-            val isHighEnergyTitle = titleKeywords.any { event.summary?.contains(it, ignoreCase = true) == true }
-            
-            val isHighEnergy = hasHighEnergyTag || hasHighPriorityTag || isHighEnergyTitle
-
-            now in start..end && isHighEnergy
+            now in start..end
         }
 
-        val focusManager = FocusManager(applicationContext)
         if (activeEvent != null) {
-            Log.d("FocusShieldWorker", "Active task found: ${activeEvent.summary}. Enabling Focus Shield.")
-            focusManager.setFocusMode(true)
+            Log.d("FocusShieldWorker", "Active task found: ${activeEvent.summary}.")
+            
+            if (prefs.focusShieldEnabled) {
+                focusManager.setFocusMode(true)
+            }
+
+            val db = DatabaseProvider.getDatabase(applicationContext)
+            val taskDao = db.taskDao()
+            val taskEntity = taskDao.getAllTasksDirect().find { 
+                it.calendarEventId == activeEvent.id || it.calendarEventId == activeEvent.recurringEventId 
+            }
+            
+            if (taskEntity != null && taskEntity.status != "COMPLETED") {
+                val start = activeEvent.start.dateTime?.value ?: activeEvent.start.date?.value ?: 0L
+                val end = activeEvent.end.dateTime?.value ?: activeEvent.end.date?.value ?: 0L
+                
+                // Start the Real-Time Foreground Service
+                val serviceIntent = Intent(applicationContext, LiveTaskService::class.java).apply {
+                    putExtra("TASK_ID", taskEntity.id)
+                    putExtra("START_TIME", start)
+                    putExtra("END_TIME", end)
+                }
+                
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    try {
+                        applicationContext.startForegroundService(serviceIntent)
+                    } catch (e: Exception) {
+                        Log.e("FocusShieldWorker", "Failed to start foreground service from background", e)
+                        // Fallback: Show standard notification if service fails
+                        LiveNotificationManager.showLiveProgressNotification(applicationContext, taskEntity, 0)
+                    }
+                } else {
+                    applicationContext.startService(serviceIntent)
+                }
+            } else {
+                LiveNotificationManager.cancelNotification(applicationContext)
+            }
         } else {
-            Log.d("FocusShieldWorker", "No active task. Disabling Focus Shield.")
+            Log.d("FocusShieldWorker", "No active task. Cleaning up.")
             focusManager.setFocusMode(false)
+            LiveNotificationManager.cancelNotification(applicationContext)
         }
 
         return Result.success()

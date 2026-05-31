@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TaskDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTask(task: TaskEntity)
+    suspend fun insertTask(task: TaskEntity): Long
 
     @Query("SELECT * FROM tasks ORDER BY id DESC")
     fun getAllTasks(): Flow<List<TaskEntity>>
@@ -17,6 +17,9 @@ interface TaskDao {
 
     @Query("SELECT * FROM tasks WHERE deadline LIKE :datePrefix || '%' OR (deadline IS NULL AND :isToday = 1) ORDER BY priority DESC LIMIT :limit")
     fun getTasksForDateWithLimit(datePrefix: String, isToday: Int, limit: Int): Flow<List<TaskEntity>>
+
+    @Query("SELECT * FROM tasks WHERE deadline LIKE :datePrefix || '%' OR (deadline IS NULL AND :isToday = 1) ORDER BY priority DESC LIMIT :limit")
+    suspend fun getTasksForDateWithLimitDirect(datePrefix: String, isToday: Int, limit: Int): List<TaskEntity>
 
     @Query("SELECT * FROM tasks ORDER BY id DESC")
     suspend fun getAllTasksDirect(): List<TaskEntity>

@@ -15,7 +15,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.TimeZone
 
-class CalendarRepository(private val calendarService: Calendar) {
+class CalendarRepository(private val calendarService: Calendar, private val context: android.content.Context) {
+
+    fun getAppContext(): android.content.Context = context
 
     private val systemTimeZone = TimeZone.getDefault().id
 
@@ -104,9 +106,15 @@ class CalendarRepository(private val calendarService: Calendar) {
             }
             val response = calendarService.freebusy().query(request).execute()
             return@withContext response.calendars["primary"]?.busy ?: emptyList()
+        } catch (e: GoogleJsonResponseException) {
+            Log.e("CalendarRepository", "FreeBusy API Error (${e.statusCode}): ${e.details?.message}")
+            if (e.statusCode == 403) {
+                throw Exception("Calendar Access Denied: Please ensure the Google Calendar API is enabled in your Cloud Console and you've granted full permissions.")
+            }
+            throw e
         } catch (e: Exception) {
             Log.e("CalendarRepository", "Error fetching freebusy: ${e.message}")
-            return@withContext emptyList()
+            throw e
         }
     }
 

@@ -7,7 +7,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JTextStyle
 import java.util.Locale
-import com.first_project.chronoai.BuildConfig
 import androidx.compose.ui.graphics.Color
 import androidx.glance.color.ColorProvider
 import androidx.compose.runtime.Composable
@@ -64,17 +63,22 @@ class VyntaWidget : GlanceAppWidget() {
         val today = LocalDate.now()
         val dateString = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
         
-        // Optimized: Filtering in SQL instead of in-memory
+        // Use synchronous fetch for the initial provideGlance to ensure data is ready
+        val initialTasks = withContext(Dispatchers.IO) {
+            db.taskDao().getTasksForDateWithLimitDirect(dateString, 1, 10)
+        }
+        
+        // Also keep the flow for updates
         val tasksFlow = db.taskDao().getTasksForDateWithLimit(dateString, 1, 10)
 
         provideContent {
-            val tasks by tasksFlow.collectAsState(initial = emptyList())
+            val tasks by tasksFlow.collectAsState(initial = initialTasks)
             android.util.Log.d("VyntaWidget", "provideContent recomposing with ${tasks.size} tasks")
             
             val briefing = generateRuleBasedBriefing(tasks)
             val size = LocalSize.current
             GlanceTheme {
-                VyntaWidgetContent(context, size, tasks, briefing)
+                VyntaWidgetContent(size, tasks, briefing)
             }
         }
     }
@@ -93,7 +97,7 @@ class VyntaWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun VyntaWidgetContent(context: Context, size: DpSize, tasks: List<TaskEntity>, briefing: String) {
+    private fun VyntaWidgetContent(size: DpSize, tasks: List<TaskEntity>, briefing: String) {
         val completedCount = tasks.count { it.status == "COMPLETED" }
         val totalCount = tasks.size
         val progress = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f
@@ -101,18 +105,18 @@ class VyntaWidget : GlanceAppWidget() {
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(GlanceTheme.colors.background)
+                .background(GlanceTheme.colors.surface)
                 .appWidgetBackground()
                 .padding(16.dp)
         ) {
-            WidgetHeader(context, progress)
+            WidgetHeader(progress)
             
             Spacer(GlanceModifier.height(8.dp))
 
             Text(
                 text = briefing,
                 style = TextStyle(
-                    color = GlanceTheme.colors.primary, 
+                    color = GlanceTheme.colors.primary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 ),
@@ -130,7 +134,7 @@ class VyntaWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun WidgetHeader(context: Context, progress: Float) {
+    private fun WidgetHeader(progress: Float) {
         val today = LocalDate.now()
         val dayName = today.dayOfWeek.getDisplayName(JTextStyle.SHORT, Locale.getDefault()).uppercase()
 
@@ -144,23 +148,23 @@ class VyntaWidget : GlanceAppWidget() {
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurface,
                         fontSize = 20.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Bold
                     )
                 )
                 Text(
                     text = dayName,
                     style = TextStyle(
                         color = GlanceTheme.colors.onSurfaceVariant, 
-                        fontSize = 10.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                 )
             }
 
-            // High-fidelity Progress Bar
+            // High-fidelity Progress Bar - Adaptive to system theme
             Box(
                 modifier = GlanceModifier
-                    .size(40.dp, 4.dp)
+                    .size(60.dp, 4.dp)
                     .background(GlanceTheme.colors.surfaceVariant)
                     .cornerRadius(2.dp)
             ) {
@@ -168,7 +172,7 @@ class VyntaWidget : GlanceAppWidget() {
                     Box(
                         modifier = GlanceModifier
                             .fillMaxHeight()
-                            .width((40 * progress).dp) 
+                            .width((60 * progress).dp) 
                             .background(GlanceTheme.colors.primary)
                             .cornerRadius(2.dp)
                     ) {}
@@ -179,15 +183,15 @@ class VyntaWidget : GlanceAppWidget() {
             
             Box(
                 modifier = GlanceModifier
-                    .size(32.dp)
-                    .background(GlanceTheme.colors.onSurface)
-                    .cornerRadius(10.dp)
+                    .size(40.dp)
+                    .background(GlanceTheme.colors.primary)
+                    .cornerRadius(20.dp) // Fully circular
                     .clickable(actionRunCallback<AddTaskAction>()),
                 contentAlignment = Alignment.Center
             ) {
                  Text("+", style = TextStyle(
-                    color = GlanceTheme.colors.surface,
-                    fontSize = 20.sp,
+                    color = GlanceTheme.colors.onPrimary,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Medium
                 ))
             }
@@ -231,36 +235,30 @@ class VyntaWidget : GlanceAppWidget() {
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .padding(bottom = 6.dp)
-                .background(if (isCompleted) ColorProvider(Color.Transparent, Color.Transparent) else GlanceTheme.colors.surfaceVariant)
-                .cornerRadius(14.dp)
-                .padding(4.dp), // Thin inner padding
+                .padding(bottom = 8.dp)
+                .background(GlanceTheme.colors.surfaceVariant)
+                .cornerRadius(16.dp)
+                .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // SEPARATE CLICKABLE CHECKBOX
             Box(
                 modifier = GlanceModifier
-                    .size(48.dp) // Large enough to be a clear target
-                    .background(ColorProvider(Color.Transparent, Color.Transparent)) // Ensure the entire area is clickable
-                    .cornerRadius(24.dp)
+                    .size(40.dp)
+                    .background(Color.Transparent)
+                    .cornerRadius(20.dp)
                     .clickable(toggleAction),
                 contentAlignment = Alignment.Center
             ) {
                 Box(
                     modifier = GlanceModifier
                         .size(24.dp)
-                        .background(if (isCompleted) GlanceTheme.colors.primary else ColorProvider(Color.Transparent, Color.Transparent))
+                        .background(if (isCompleted) GlanceTheme.colors.primary else GlanceTheme.colors.outline)
                         .cornerRadius(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isCompleted) {
                         Text("✓", style = TextStyle(color = GlanceTheme.colors.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold))
-                    } else {
-                        Box(
-                            modifier = GlanceModifier.fillMaxSize().padding(2.dp)
-                                .background(GlanceTheme.colors.onSurfaceVariant)
-                                .cornerRadius(6.dp)
-                        ) {}
                     }
                 }
             }
@@ -269,8 +267,7 @@ class VyntaWidget : GlanceAppWidget() {
             Column(
                 modifier = GlanceModifier
                     .defaultWeight()
-                    .padding(vertical = 8.dp, horizontal = 4.dp)
-                    .cornerRadius(12.dp) // FIXED: Rounded highlight for title area
+                    .padding(vertical = 4.dp, horizontal = 12.dp)
                     .clickable(detailAction)
             ) {
                 Text(
@@ -279,14 +276,14 @@ class VyntaWidget : GlanceAppWidget() {
                     style = TextStyle(
                         color = if (isCompleted) GlanceTheme.colors.onSurfaceVariant else GlanceTheme.colors.onSurface, 
                         fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         textDecoration = if (isCompleted) TextDecoration.LineThrough else null
                     )
                 )
                 if (time.isNotEmpty() && !isCompleted) {
                     Text(
                         time,
-                        style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     )
                 }
             }

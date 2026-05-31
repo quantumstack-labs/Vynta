@@ -48,6 +48,22 @@ class ThemeViewModel(private val repository: UserPreferencesRepo) : ViewModel() 
         viewModelScope.launch { repository.updateSmartSpacing(enabled) }
     }
 
+    fun setHapticsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.updateHaptics(enabled) }
+    }
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.updateNotifications(enabled) }
+    }
+
+    fun setDynamicColors(enabled: Boolean) {
+        viewModelScope.launch { repository.updateDynamicColors(enabled) }
+    }
+
+    fun setBiometricLock(enabled: Boolean) {
+        viewModelScope.launch { repository.updateBiometricLock(enabled) }
+    }
+
     fun completeOnboarding() {
         viewModelScope.launch { repository.updateOnboardingStatus(true) }
     }

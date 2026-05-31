@@ -13,6 +13,7 @@ class CalendarAuthManager(private val context: Context) {
         return GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
             .requestScopes(
+                Scope(CalendarScopes.CALENDAR),
                 Scope(CalendarScopes.CALENDAR_EVENTS),
                 Scope(CalendarScopes.CALENDAR_READONLY)
             )

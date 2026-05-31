@@ -26,7 +26,7 @@ class GroqManager(private val apiKey: String) {
             .create(GroqApiService::class.java)
     }
 
-    suspend fun analyzeTask(taskText: String, customPrompt: String? = null): String {
+    suspend fun analyzeTask(taskText: String, customPrompt: String? = null, useJsonMode: Boolean = false): String {
         // Robust Key Stripping: Remove whitespace AND surrounding quotes
         val rawKey = apiKey.trim()
         val trimmedKey = rawKey.removeSurrounding("\"").removeSurrounding("'").trim()
@@ -42,24 +42,42 @@ class GroqManager(private val apiKey: String) {
         return try {
             val prompt = customPrompt ?: PromptBuilder.buildTaskPrompt(taskText, com.first_project.chronoai.data.local.prefs.SchedulingPreferences())
             val request = GroqRequest(
-                model = "llama-3.3-70b-versatile", // Restored versatile for performance
+                model = "llama-3.1-8b-instant", // Switched to 8B for higher rate limits and speed
                 messages = listOf(
                     Message(role = "user", content = prompt)
-                )
+                ),
+                responseFormat = if (useJsonMode) ResponseFormat("json_object") else null
             )
             val response = apiService.getCompletion("Bearer $trimmedKey", request)
             response.choices.firstOrNull()?.message?.content ?: "{}"
         } catch (e: retrofit2.HttpException) {
             val errorBody = e.response()?.errorBody()?.string()
-            android.util.Log.e("GroqManager", "HTTP 401 Diagnostic: Ensure your key starts with gsk_ and has no quotes in local.properties. Error: $errorBody")
-            if (e.code() == 401) {
-                "Error: 401 - Invalid API Key. Used key: $maskedKey. Please Rebuild project."
-            } else {
-                "Error: ${e.code()} - $errorBody"
+            if (e.code() == 429) {
+                return "Error: Neural Core is busy. Please wait a moment."
             }
+            android.util.Log.e("GroqManager", "HTTP Error: $errorBody")
+            "Error: ${e.code()} - $errorBody"
         } catch (e: Exception) {
             android.util.Log.e("GroqManager", "API request failed", e)
             "Error: ${e.localizedMessage ?: "Unknown error"}"
+        }
+    }
+
+    suspend fun analyzeReflow(problem: String, currentSchedule: String, prefs: com.first_project.chronoai.data.local.prefs.SchedulingPreferences): String {
+        val trimmedKey = apiKey.trim().removeSurrounding("\"").removeSurrounding("'").trim()
+        if (trimmedKey.isEmpty()) return "Error: API Key missing"
+
+        return try {
+            val prompt = PromptBuilder.buildReflowPrompt(problem, currentSchedule, prefs)
+            val request = GroqRequest(
+                model = "llama-3.1-8b-instant", // Switched to 8B for higher rate limits and speed
+                messages = listOf(Message(role = "user", content = prompt))
+            )
+            val response = apiService.getCompletion("Bearer $trimmedKey", request)
+            response.choices.firstOrNull()?.message?.content ?: "[]"
+        } catch (e: Exception) {
+            android.util.Log.e("GroqManager", "Reflow API failed", e)
+            "[]"
         }
     }
 }

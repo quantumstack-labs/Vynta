@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- White Circle Background -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-48,0a48,48 0 1,1 96,0a48,48 0 1,1 -96,0" />
+
+    <!-- Logo Mark -->
+    <path
+        android:pathData="M32,38 C32,72 50,85 54,85 C58,85 76,72 76,38"
+        android:strokeColor="#2563EB"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M76,38 C68,25 54,34 54,34"
+        android:strokeColor="#2563EB"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M54,34 A1.5,1.5 0 1,1 53.99,34"
+        android:fillColor="#2563EB" />
+
+    <!-- Pink Highlight Dot -->
+    <path
+        android:pathData="M78,28 A5,5 0 1,1 77.99,28"
+        android:fillColor="#F472B6" />
+</vector>

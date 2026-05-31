@@ -10,6 +10,7 @@ data class TaskEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val title: String,
     val deadline: String?, // Format: "YYYY-MM-DD HH:mm"
+    val durationMinutes: Int = 60, // Default to 60 minutes
     val status: String = "SCHEDULED", // SCHEDULED, COMPLETED, OVERDUE
     val isRecurring: Boolean = false,
     val recurrencePattern: String? = null,
@@ -18,5 +19,6 @@ data class TaskEntity(
     val priority: Int = 3, // Requirement: priority (1-5)
     val calendarEventId: String? = null,
     val subtasks: List<String> = emptyList(),
-    val schedulingReason: String? = null // Why this slot receipt
+    val schedulingReason: String? = null, // Why this slot receipt
+    val completedDates: List<String> = emptyList() // Dates (YYYY-MM-DD) when this recurring task was completed
 )

@@ -187,7 +187,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 item {
                     Spacer(Modifier.height(40.dp))
                     Text(
-                        "Vynta v1.0 • Built with Passion",
+                        "Vynta v3.1.0 • Built with Passion",
                         style = MaterialTheme.typography.labelSmall,
                         color = colorScheme.onSurface.copy(alpha = 0.3f)
                     )

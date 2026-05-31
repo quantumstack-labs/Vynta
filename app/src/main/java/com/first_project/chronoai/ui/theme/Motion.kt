@@ -9,29 +9,29 @@ import androidx.compose.ui.unit.Dp
 
 /**
  * Requirement 1: PHYSICS-BASED MOTION
- * Standardized spring parameters: dampingRatio = 0.75f, stiffness = 300f.
+ * Expressive spring parameters: dampingRatio = 0.7f, stiffness = 200f for a fluid, natural feel.
  */
 val VyntaSpring = spring<Float>(
-    dampingRatio = 0.75f,
-    stiffness = 300f
+    dampingRatio = 0.7f,
+    stiffness = 200f
 )
 
 val VyntaSpringInt = spring<Int>(
-    dampingRatio = 0.75f,
-    stiffness = 300f
+    dampingRatio = 0.7f,
+    stiffness = 200f
 )
 
 val VyntaSpringIntOffset = spring<IntOffset>(
-    dampingRatio = 0.75f,
-    stiffness = 300f
+    dampingRatio = 0.7f,
+    stiffness = 200f
 )
 
 val VyntaSpringDp = spring<Dp>(
-    dampingRatio = 0.75f,
-    stiffness = 300f
+    dampingRatio = 0.7f,
+    stiffness = 200f
 )
 
 val VyntaSpringColor = spring<Color>(
-    dampingRatio = 0.75f,
-    stiffness = 300f
+    dampingRatio = 0.7f,
+    stiffness = 200f
 )

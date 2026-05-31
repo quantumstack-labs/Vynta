@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- The Neural Flow 'V' mark -->
+    <path
+        android:pathData="M30,35 C30,75 48,90 54,90 C60,90 78,75 78,35"
+        android:strokeColor="#2563EB"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M78,35 C70,20 54,30 54,30"
+        android:strokeColor="#2563EB"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- AI Node point -->
+    <path
+        android:pathData="M54,30 A2,2 0 1,1 53.99,30"
+        android:fillColor="#2563EB" />
+    <!-- Neural Notification Dot (Pink) -->
+    <path
+        android:pathData="M78,24 A5.5,5.5 0 1,1 77.99,24"
+        android:fillColor="#F472B6" />
+</vector>

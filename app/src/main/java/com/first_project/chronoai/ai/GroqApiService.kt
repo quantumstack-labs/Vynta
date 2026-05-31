@@ -15,7 +15,15 @@ data class GroqRequest(
     @SerializedName("temperature")
     val temperature: Double = 0.1,
     @SerializedName("stream")
-    val stream: Boolean = false
+    val stream: Boolean = false,
+    @SerializedName("response_format")
+    val responseFormat: ResponseFormat? = null
+)
+
+@Keep
+data class ResponseFormat(
+    @SerializedName("type")
+    val type: String
 )
 
 @Keep

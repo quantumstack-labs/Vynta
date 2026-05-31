@@ -9,11 +9,15 @@ import android.view.HapticFeedbackConstants
 import android.view.View
 
 object HapticHelper {
+    var hapticsEnabled: Boolean = true
+
     fun playClick(view: View) {
+        if (!hapticsEnabled) return
         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
     }
 
     fun playEffect(context: Context, type: String) {
+        if (!hapticsEnabled) return
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
             vManager.defaultVibrator

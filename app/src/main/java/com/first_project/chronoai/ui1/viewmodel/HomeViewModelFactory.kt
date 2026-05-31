@@ -8,12 +8,13 @@ import com.first_project.chronoai.data.local.dao.TaskDao
 class HomeViewModelFactory(
     private val repository: CalendarRepository,
     private val taskDao: TaskDao,
-    private val aiManager: com.first_project.chronoai.ai.GroqManager
+    private val aiManager: com.first_project.chronoai.ai.GroqManager,
+    private val userPreferencesRepo: com.first_project.chronoai.data.local.prefs.UserPreferencesRepo
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(repository, taskDao, aiManager) as T
+            return HomeViewModel(repository, taskDao, aiManager, userPreferencesRepo) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
