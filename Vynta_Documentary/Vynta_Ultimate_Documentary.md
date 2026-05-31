@@ -72,6 +72,14 @@ A dedicated deep-work environment. When active:
 - The AI "guards" the user (FocusShieldWorker).
 - The "Atlas" persona provides stoic encouragement.
 
+### Android 16 Rich Onboarding & Live Progress
+Vynta is engineered for the future of Android, utilizing early-adoption patterns for Android 16:
+- **Rich Onboarding (Temporal Alignment):** A cinematic login experience that visually "aligns" chaotic task nodes into a structured timeline, signaling the transition from chaos to clarity.
+- **Live Progress Notifications:** Leveraging `android.requestPromotedOngoing` and `ProgressStyle` to provide:
+    - **Pill Content:** Dynamic status updates (e.g., "🎯 75%") visible in the status bar and lock screen.
+    - **Milestone Segments:** Proportional, multi-colored progress bars (Green -> Gold -> Cyan -> Magenta) that indicate phase transitions within a mission.
+    - **Adaptive Emoji Trackers:** Context-aware icons that change based on progress intensity.
+
 ### Vynta Widget
 Built with **Android Glance**, the widget provides:
 - A real-time view of the "Current Objective."
